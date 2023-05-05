@@ -1,5 +1,9 @@
 #![warn(clippy::pedantic)]
-#![allow(clippy::missing_panics_doc, clippy::module_name_repetitions)]
+#![allow(
+    clippy::len_without_is_empty,
+    clippy::missing_panics_doc,
+    clippy::module_name_repetitions
+)]
 
 pub mod numerics;
 pub mod peak;
@@ -25,11 +29,15 @@ impl eframe::App for Protonolysis {
             ui.heading("Protonolysis");
 
             let peak = Peak {
-                splitters: vec![Splitter { n: 2, j: 5. }, Splitter { n: 3, j: 2. }],
-                fwhm: 0.5,
+                splitters: vec![
+                    Splitter { n: 3, j: 8. },
+                    Splitter { n: 2, j: 2. },
+                    Splitter { n: 2, j: 1. },
+                ],
+                fwhm: 0.75,
             };
 
-            let waveform = peak.build_waveform();
+            let waveform = peak.build_multiplet_cascade().nth_waveform(3);
             let extent = waveform.extent(10.0);
 
             let plot = Plot::new("main")
