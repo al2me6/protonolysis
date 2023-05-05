@@ -30,12 +30,16 @@ impl eframe::App for Protonolysis {
             };
 
             let waveform = peak.build_waveform();
+            let extent = waveform.extent(10.0);
 
-            let plot = Plot::new("main");
+            let plot = Plot::new("main")
+                .include_y(waveform.max())
+                .auto_bounds_x()
+                .auto_bounds_y();
             let line = plot::Line::new(PlotPoints::from_explicit_callback(
-                move |x| numerics::evaluate_gaussian_sum(&waveform, x),
-                ..,
-                1000,
+                move |x| waveform.evaluate(x),
+                extent,
+                2500,
             ));
             plot.show(ui, |plot_ui| {
                 plot_ui.line(line);

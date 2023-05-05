@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::collections::VecDeque;
 
-use crate::numerics::{self, Gaussian};
+use crate::numerics::{self, Gaussian, GaussianSum};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Splitter {
@@ -100,7 +100,7 @@ impl Peak {
     }
 
     #[must_use]
-    pub fn build_waveform(&self) -> Vec<Gaussian> {
+    pub fn build_waveform(&self) -> GaussianSum {
         self.build_peaklets()
             .into_iter()
             .map(|peaklet| Gaussian::with_fwhm(self.fwhm, peaklet.δ, peaklet.integration))

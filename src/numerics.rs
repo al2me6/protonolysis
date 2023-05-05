@@ -1,3 +1,7 @@
+use std::ops::RangeInclusive;
+
+use itertools::Itertools;
+
 pub const FRAC_1_SQRT_2PI: f64 = 0.398_942_280_4;
 
 pub struct Gaussian {
@@ -10,7 +14,7 @@ impl Gaussian {
     #[must_use]
     pub fn with_fwhm(fwhm: f64, μ: f64, normalize: f64) -> Self {
         #[allow(non_upper_case_globals)]
-        /// 2 sqrt(2 ln 2).
+        /// 2 sqrt(2 ln 2). <https://mathworld.wolfram.com/GaussianFunction.html>, eqn. 8.
         const FWHM_FOR_σ: f64 = 2.354_820_045;
         Gaussian {
             μ,
@@ -30,9 +34,42 @@ impl Gaussian {
     }
 }
 
-#[must_use]
-pub fn evaluate_gaussian_sum(gaussians: &[Gaussian], x: f64) -> f64 {
-    gaussians.iter().map(|g| g.evaluate(x)).sum()
+pub struct GaussianSum(Vec<Gaussian>);
+
+impl FromIterator<Gaussian> for GaussianSum {
+    fn from_iter<T: IntoIterator<Item = Gaussian>>(iter: T) -> Self {
+        let mut gaussians = iter.into_iter().collect_vec();
+        gaussians.sort_by(|a, b| a.μ.total_cmp(&b.μ));
+        Self(gaussians)
+    }
+}
+
+impl GaussianSum {
+    #[must_use]
+    pub fn evaluate(&self, x: f64) -> f64 {
+        self.0.iter().map(|g| g.evaluate(x)).sum()
+    }
+
+    #[must_use]
+    pub fn extent(&self, σ: f64) -> RangeInclusive<f64> {
+        // FIXME: handle overlapping components.
+        if self.0.is_empty() {
+            0.0..=0.0
+        } else {
+            let (first, last) = (self.0.first().unwrap(), self.0.last().unwrap());
+            (first.μ - first.σ * σ)..=(last.μ + last.σ * σ)
+        }
+    }
+
+    #[must_use]
+    pub fn max(&self) -> f64 {
+        // FIXME: handle overlapping components.
+        self.0
+            .iter()
+            .map(|g| g.evaluate(g.μ))
+            .reduce(f64::max)
+            .unwrap_or(0.)
+    }
 }
 
 pub fn pascals_triangle(n: u32) -> impl Iterator<Item = u32> {
