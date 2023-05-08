@@ -3,6 +3,22 @@ use std::collections::VecDeque;
 
 use crate::numerics::{self, Gaussian, GaussianSum};
 
+#[must_use]
+#[allow(clippy::doc_markdown)]
+/// Convert an NMR instrument frequency (MHz) to the corresponding magnetic field strength (T).
+pub fn mhz_to_tesla(frequency: f64) -> f64 {
+    #[allow(non_upper_case_globals)]
+    const γ_PROTON: f64 = 42.577_478_518; // MHz/T
+    frequency / γ_PROTON
+}
+
+#[must_use]
+#[allow(clippy::doc_markdown)]
+/// Convert an absolute shift in Hz to ppm at a given field strength in (MHz).
+pub fn j_to_ppm(j: f64, frequency: f64) -> f64 {
+    j / frequency
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 /// A single type of proton coupled to a [`Peak`].
 pub struct Splitter {
@@ -42,6 +58,12 @@ pub struct Peak {
     pub fwhm: f64,
 }
 
+impl Default for Splitter {
+    fn default() -> Self {
+        Self { n: 1, j: 5.0 }
+    }
+}
+
 impl Splitter {
     pub const PATTERN_ABBREVIATIONS: [&str; 6] = ["s", "d", "t", "q", "p", "h"];
 
@@ -51,9 +73,15 @@ impl Splitter {
     }
 
     #[must_use]
-    pub fn name_pattern(&self) -> Option<&'static str> {
+    pub fn name_pattern(&self) -> Cow<'static, str> {
         // N.b. indexing: peak count = n + 1, but 0-indexing subtracts 1.
-        Self::PATTERN_ABBREVIATIONS.get(self.n as usize).copied()
+        Self::PATTERN_ABBREVIATIONS
+            .get(self.n as usize)
+            .copied()
+            .map_or_else(
+                || self.resultant_peaklet_count().to_string().into(),
+                Cow::Borrowed,
+            )
     }
 }
 
@@ -75,16 +103,31 @@ impl MultipletCascade {
     }
 
     #[must_use]
-    pub fn nth_waveform(&self, n: usize) -> GaussianSum {
+    pub fn nth_waveform(&self, n: usize, field_strength: f64) -> GaussianSum {
         self.stages[n]
             .iter()
-            .map(|peaklet| Gaussian::with_fwhm(self.fwhm, peaklet.δ, peaklet.integration))
+            .map(|peaklet| {
+                Gaussian::with_fwhm(
+                    j_to_ppm(self.fwhm, field_strength),
+                    j_to_ppm(peaklet.δ, field_strength),
+                    peaklet.integration,
+                )
+            })
             .collect()
     }
 
     #[must_use]
-    pub fn final_waveform(&self) -> GaussianSum {
-        self.nth_waveform(self.len() - 1)
+    pub fn final_waveform(&self, field_strength: f64) -> GaussianSum {
+        self.nth_waveform(self.len() - 1, field_strength)
+    }
+}
+
+impl Default for Peak {
+    fn default() -> Self {
+        Self {
+            splitters: vec![],
+            fwhm: 1.,
+        }
     }
 }
 
@@ -95,14 +138,7 @@ impl Peak {
         if splitter_count == 0 {
             return Splitter::PATTERN_ABBREVIATIONS[0].to_owned();
         }
-        self.splitters
-            .iter()
-            .map(|splitter| {
-                splitter
-                    .name_pattern()
-                    .map_or_else(|| Cow::from(splitter.n.to_string()), Cow::Borrowed)
-            })
-            .collect()
+        self.splitters.iter().map(Splitter::name_pattern).collect()
     }
 
     #[must_use]
