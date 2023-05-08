@@ -1,9 +1,12 @@
 [package]
 name = "protonolysis"
 version = "0.1.0"
+authors = ["Alvin Q. Meng <alvin.q.meng@gmail.com>"]
+description = "An NMR splitting pattern visualization tool"
+license = "GPL-3.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+repository = "https://github.com/al2me6/protonolysis"
+readme = "README.md"
 
 [dependencies]
 approx = "0.5.1"
