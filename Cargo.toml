@@ -11,4 +11,5 @@ readme = "README.md"
 [dependencies]
 approx = "0.5.1"
 eframe = "0.21.3"
+egui_extras = "0.21.0"
 itertools = "0.10.5"

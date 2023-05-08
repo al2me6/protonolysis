@@ -4,6 +4,7 @@ use itertools::Itertools;
 
 pub const FRAC_1_SQRT_2PI: f64 = 0.398_942_280_4;
 
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Gaussian {
     pub μ: f64,
     pub σ: f64,
@@ -34,6 +35,7 @@ impl Gaussian {
     }
 }
 
+#[derive(Clone, PartialEq, Debug)]
 pub struct GaussianSum(Vec<Gaussian>);
 
 impl FromIterator<Gaussian> for GaussianSum {
