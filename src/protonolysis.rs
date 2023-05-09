@@ -1,6 +1,7 @@
 use eframe::egui::plot::{self, Plot, PlotPoints};
-use eframe::egui::{self, Button, FontData, FontDefinitions, Slider};
+use eframe::egui::{self, Align, Button, DragValue, FontData, FontDefinitions, Layout, Slider};
 use eframe::epaint::FontFamily;
+use egui_extras::{Column, TableBuilder};
 
 use crate::peak::{self, Peak, Splitter};
 
@@ -61,7 +62,7 @@ impl eframe::App for Protonolysis {
 
             ui.separator();
 
-            egui::Grid::new("controls_sliders")
+            egui::Grid::new("controls_sliders_instrument")
                 .num_columns(2)
                 .show(ui, |ui| {
                     ui.label("Instrument frequency:");
@@ -76,7 +77,7 @@ impl eframe::App for Protonolysis {
                     ui.label("Field strength:");
                     ui.add_enabled(
                         false,
-                        egui::DragValue::new(&mut peak::mhz_to_tesla(self.field_strength))
+                        DragValue::new(&mut peak::mhz_to_tesla(self.field_strength))
                             .max_decimals(1)
                             .suffix(" T"),
                     );
@@ -97,14 +98,12 @@ impl eframe::App for Protonolysis {
             });
 
             // Fixme spread out
-            let table = egui_extras::TableBuilder::new(ui)
+            let table = TableBuilder::new(ui)
                 .striped(true)
-                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                .column(egui_extras::Column::auto())
-                .column(egui_extras::Column::auto())
-                .column(egui_extras::Column::auto())
-                .column(egui_extras::Column::auto())
-                .column(egui_extras::Column::auto());
+                .cell_layout(Layout::left_to_right(Align::Center))
+                .column(Column::auto_with_initial_suggestion(20.))
+                .columns(Column::auto(), 3)
+                .column(Column::remainder());
             // FIXME: auto size.
             table
                 .header(20., |mut header| {
@@ -127,7 +126,7 @@ impl eframe::App for Protonolysis {
                     while i < self.peak.splitters.len() {
                         let row = |mut row: egui_extras::TableRow| {
                             row.col(|ui| {
-                                ui.label(i.to_string());
+                                ui.label((i + 1).to_string());
                             });
                             let splitter = &mut self.peak.splitters[i];
                             row.col(|ui| {
@@ -170,7 +169,7 @@ impl eframe::App for Protonolysis {
 
             ui.separator();
 
-            egui::Grid::new("controls_sliders")
+            egui::Grid::new("controls_sliders_view")
                 .num_columns(2)
                 .show(ui, |ui| {
                     ui.label("Peak FWHM:")
@@ -210,7 +209,7 @@ impl eframe::App for Protonolysis {
                 .auto_bounds_y();
             let line = plot::Line::new(PlotPoints::from_explicit_callback(
                 move |x| waveform.evaluate(x),
-                extent,
+                ..,
                 2500,
             ));
             plot.show(ui, |plot_ui| {
