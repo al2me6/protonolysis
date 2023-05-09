@@ -7,6 +7,7 @@ use crate::peak::{self, Peak, Splitter};
 pub struct Protonolysis {
     field_strength: f64,
     peak: Peak,
+    view_stage: usize,
 }
 
 impl Protonolysis {
@@ -35,26 +36,37 @@ impl Protonolysis {
                 splitters: vec![Splitter { n: 2, j: 6.0 }],
                 fwhm: 1.,
             },
+            view_stage: 1,
         }
+    }
+
+    fn try_increment_view_stage(&mut self) -> bool {
+        if self.view_stage < self.peak.splitters.len() {
+            self.view_stage += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn clamp_view_stage(&mut self) {
+        self.view_stage = self.view_stage.min(self.peak.splitters.len());
     }
 }
 
 impl eframe::App for Protonolysis {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self {
-            field_strength,
-            peak,
-        } = self;
-
         let controls = |ui: &mut egui::Ui| {
             ui.heading("Protonolysis");
+
+            ui.separator();
 
             egui::Grid::new("controls_sliders")
                 .num_columns(2)
                 .show(ui, |ui| {
                     ui.label("Instrument frequency:");
                     ui.add(
-                        Slider::new(field_strength, 40.0..=1200.0)
+                        Slider::new(&mut self.field_strength, 40.0..=1200.0)
                             .fixed_decimals(0)
                             .step_by(10.)
                             .suffix(" MHz"),
@@ -64,10 +76,22 @@ impl eframe::App for Protonolysis {
                     ui.label("Field strength:");
                     ui.add_enabled(
                         false,
-                        egui::DragValue::new(&mut peak::mhz_to_tesla(*field_strength)).suffix(" T"),
+                        egui::DragValue::new(&mut peak::mhz_to_tesla(self.field_strength))
+                            .max_decimals(1)
+                            .suffix(" T"),
                     );
                     ui.end_row();
                 });
+
+            ui.separator();
+
+            ui.horizontal(|ui| {
+                ui.label("Configure coupled protons:");
+                if ui.button("Add").clicked() {
+                    self.peak.splitters.push(Splitter::default());
+                    self.try_increment_view_stage();
+                }
+            });
 
             // Fixme spread out
             let table = egui_extras::TableBuilder::new(ui)
@@ -76,10 +100,12 @@ impl eframe::App for Protonolysis {
                 .column(egui_extras::Column::auto())
                 .column(egui_extras::Column::auto())
                 .column(egui_extras::Column::auto())
+                .column(egui_extras::Column::auto())
                 .column(egui_extras::Column::auto());
             // FIXME: auto size.
             table
                 .header(20., |mut header| {
+                    header.col(|_ui| {});
                     header.col(|ui| {
                         ui.strong("Count");
                     });
@@ -95,9 +121,12 @@ impl eframe::App for Protonolysis {
                 })
                 .body(|mut body| {
                     let mut i = 0;
-                    while i < peak.splitters.len() {
+                    while i < self.peak.splitters.len() {
                         let row = |mut row: egui_extras::TableRow| {
-                            let splitter = &mut peak.splitters[i];
+                            row.col(|ui| {
+                                ui.label(i.to_string());
+                            });
+                            let splitter = &mut self.peak.splitters[i];
                             row.col(|ui| {
                                 ui.add(Slider::new(&mut splitter.n, 1..=10));
                             });
@@ -114,19 +143,20 @@ impl eframe::App for Protonolysis {
                                     .on_hover_text("Move up")
                                     .clicked()
                                 {
-                                    peak.splitters.swap(i - 1, i);
+                                    self.peak.splitters.swap(i - 1, i);
                                 }
-                                let is_last = i == peak.splitters.len() - 1;
+                                let is_last = i == self.peak.splitters.len() - 1;
                                 if ui
                                     .add_enabled(!is_last, Button::new("↓"))
                                     .on_hover_text("Move down")
                                     .clicked()
                                 {
-                                    peak.splitters.swap(i, i + 1);
+                                    self.peak.splitters.swap(i, i + 1);
                                 }
                                 // FIXME: positioning of x needs OTF feature `case`.
                                 if ui.button("×").on_hover_text("Delete").clicked() {
-                                    peak.splitters.remove(i);
+                                    self.peak.splitters.remove(i);
+                                    self.clamp_view_stage();
                                 }
                             });
                         };
@@ -135,20 +165,38 @@ impl eframe::App for Protonolysis {
                     }
                 });
 
-            if ui.button("Add splitter").clicked() {
-                peak.splitters.push(Splitter::default());
-            }
+            ui.separator();
+
+            egui::Grid::new("controls_sliders")
+                .num_columns(2)
+                .show(ui, |ui| {
+                    ui.label("Peak FWHM:")
+                        .on_hover_text("Full width at half maximum (i.e., broadness) of peaks.");
+                    ui.add(
+                        Slider::new(&mut self.peak.fwhm, 0.1..=4.0)
+                            .fixed_decimals(1)
+                            .suffix(" Hz"),
+                    );
+                    ui.end_row();
+
+                    ui.label("Apply splitting up to:");
+                    ui.add(Slider::new(
+                        &mut self.view_stage,
+                        0..=self.peak.splitters.len(),
+                    ));
+                    ui.end_row();
+                });
         };
 
         egui::SidePanel::right("controls")
-            .min_width(350.)
             .resizable(false)
             .show(ctx, controls);
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            let waveform = peak
+            let waveform = self
+                .peak
                 .build_multiplet_cascade()
-                .final_waveform(*field_strength);
+                .nth_waveform(self.view_stage, self.field_strength);
             let extent = waveform.extent(10.0);
 
             let plot = Plot::new("main")
