@@ -8,7 +8,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![feature(drain_filter)]
 
-use eframe::epaint::Vec2;
 pub mod numerics;
 pub mod peak;
 pub mod protonolysis;
@@ -16,7 +15,7 @@ pub mod protonolysis;
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {
-        initial_window_size: Some(Vec2 { x: 1200., y: 600. }),
+        initial_window_size: Some(eframe::epaint::Vec2 { x: 1200., y: 600. }),
         ..eframe::NativeOptions::default()
     };
     tracing_subscriber::fmt::init();
