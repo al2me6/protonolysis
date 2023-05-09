@@ -8,12 +8,18 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![feature(drain_filter)]
 
+use eframe::epaint::Vec2;
+use eframe::NativeOptions;
+
 pub mod numerics;
 pub mod peak;
 pub mod protonolysis;
 
 fn main() -> eframe::Result<()> {
-    let native_options = eframe::NativeOptions::default();
+    let native_options = eframe::NativeOptions {
+        initial_window_size: Some(Vec2 { x: 1200., y: 600. }),
+        ..NativeOptions::default()
+    };
     tracing_subscriber::fmt::init();
     eframe::run_native(
         "Protonolysis",
