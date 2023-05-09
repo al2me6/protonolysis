@@ -1,5 +1,6 @@
 use eframe::egui::plot::{self, Plot, PlotPoints};
-use eframe::egui::{self, Button, Slider};
+use eframe::egui::{self, Button, FontData, FontDefinitions, Slider};
+use eframe::epaint::FontFamily;
 
 use crate::peak::{self, Peak, Splitter};
 
@@ -10,7 +11,24 @@ pub struct Protonolysis {
 
 impl Protonolysis {
     #[must_use]
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        const FONT: &str = "Inter";
+
+        let mut fonts = FontDefinitions::empty();
+        fonts.font_data.insert(
+            FONT.to_owned(),
+            FontData::from_static(include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/assets/Inter-Regular.otf"
+            ))),
+        );
+        fonts
+            .families
+            .get_mut(&FontFamily::Proportional)
+            .unwrap()
+            .push(FONT.to_owned());
+        cc.egui_ctx.set_fonts(fonts);
+
         Self {
             field_strength: 600.,
             peak: Peak {
@@ -106,6 +124,7 @@ impl eframe::App for Protonolysis {
                                 {
                                     peak.splitters.swap(i, i + 1);
                                 }
+                                // FIXME: positioning of x needs OTF feature `case`.
                                 if ui.button("×").on_hover_text("Delete").clicked() {
                                     peak.splitters.remove(i);
                                 }
