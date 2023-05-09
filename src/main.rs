@@ -9,16 +9,15 @@
 #![feature(drain_filter)]
 
 use eframe::epaint::Vec2;
-use eframe::NativeOptions;
-
 pub mod numerics;
 pub mod peak;
 pub mod protonolysis;
 
+#[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {
         initial_window_size: Some(Vec2 { x: 1200., y: 600. }),
-        ..NativeOptions::default()
+        ..eframe::NativeOptions::default()
     };
     tracing_subscriber::fmt::init();
     eframe::run_native(
@@ -27,4 +26,20 @@ fn main() -> eframe::Result<()> {
         Box::new(|cc| Box::new(protonolysis::Protonolysis::new(cc))),
     )?;
     Ok(())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn main() {
+    console_error_panic_hook::set_once();
+    tracing_wasm::set_as_global_default();
+    let web_options = eframe::WebOptions::default();
+    wasm_bindgen_futures::spawn_local(async {
+        eframe::start_web(
+            "canvas",
+            web_options,
+            Box::new(|cc| Box::new(protonolysis::Protonolysis::new(cc))),
+        )
+        .await
+        .expect("failed to start eframe");
+    });
 }
