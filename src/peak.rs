@@ -141,6 +141,10 @@ impl Peak {
         self.splitters.iter().map(Splitter::name_pattern).collect()
     }
 
+    pub fn canonicalize(&mut self) {
+        self.splitters.sort_by(|a, b| b.j.total_cmp(&a.j));
+    }
+
     #[must_use]
     pub fn build_multiplet_cascade(&self) -> MultipletCascade {
         let mut cascade = MultipletCascade {

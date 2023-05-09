@@ -85,11 +85,14 @@ impl eframe::App for Protonolysis {
 
             ui.separator();
 
+            ui.label("Configure coupled protons:");
             ui.horizontal(|ui| {
-                ui.label("Configure coupled protons:");
                 if ui.button("Add").clicked() {
                     self.peak.splitters.push(Splitter::default());
                     self.try_increment_view_stage();
+                }
+                if ui.button("Sort by J").clicked() {
+                    self.peak.canonicalize();
                 }
             });
 
