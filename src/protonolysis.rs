@@ -1,6 +1,9 @@
-use eframe::egui::plot::{self, Plot, PlotPoints};
-use eframe::egui::{self, Align, Button, DragValue, FontData, FontDefinitions, Layout, Slider};
-use eframe::epaint::FontFamily;
+use eframe::egui::plot::{self, Plot, PlotBounds, PlotPoints};
+use eframe::egui::{
+    Align, Button, CentralPanel, Context, CursorIcon, DragValue, FontData, FontDefinitions, Grid,
+    Layout, SidePanel, Slider, Ui,
+};
+use eframe::epaint::{FontFamily, Vec2};
 use egui_extras::{Column, TableBuilder};
 
 use crate::peak::{self, Peak, Splitter};
@@ -56,13 +59,13 @@ impl Protonolysis {
 }
 
 impl eframe::App for Protonolysis {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let controls = |ui: &mut egui::Ui| {
+    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        let controls = |ui: &mut Ui| {
             ui.heading("Protonolysis");
 
             ui.separator();
 
-            egui::Grid::new("controls_sliders_instrument")
+            Grid::new("controls_sliders_instrument")
                 .num_columns(2)
                 .show(ui, |ui| {
                     ui.label("Instrument frequency:");
@@ -169,7 +172,7 @@ impl eframe::App for Protonolysis {
 
             ui.separator();
 
-            egui::Grid::new("controls_sliders_view")
+            Grid::new("controls_sliders_view")
                 .num_columns(2)
                 .show(ui, |ui| {
                     ui.label("Peak FWHM:")
@@ -190,31 +193,74 @@ impl eframe::App for Protonolysis {
                 });
         };
 
-        egui::SidePanel::right("controls")
+        SidePanel::right("controls")
             .resizable(false)
             .show(ctx, controls);
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        let body = |ui: &mut Ui| {
+            ui.label("Controls: drag to pan, scroll to zoom vertically, ctrl+scroll to zoom horizontally.");
+
             let waveform = self
                 .peak
                 .build_multiplet_cascade()
                 .nth_waveform(self.view_stage, self.field_strength);
-            let extent = waveform.extent(10.0);
+            let waveform_max = waveform.max();
 
             let plot = Plot::new("main")
-                .include_x(-0.5)
-                .include_x(0.5)
-                .include_y(waveform.max())
-                .auto_bounds_x()
-                .auto_bounds_y();
+                .include_x(-0.2)
+                .include_x(0.2)
+                .include_y(waveform_max * -0.05)
+                .include_y(waveform_max * 1.1)
+                .show_x(false)
+                .show_y(false)
+                .allow_drag(false)
+                .allow_boxed_zoom(false)
+                .allow_scroll(false)
+                .allow_zoom(false);
             let line = plot::Line::new(PlotPoints::from_explicit_callback(
                 move |x| waveform.evaluate(x),
                 ..,
-                2500,
+                5000,
             ));
             plot.show(ui, |plot_ui| {
                 plot_ui.line(line);
-            })
+
+                if !plot_ui.plot_hovered() {
+                    return;
+                }
+
+                // Custom pan:
+                let drag = plot_ui
+                    .ctx()
+                    .input(|i| i.pointer.primary_down().then(|| i.pointer.delta()));
+                if let Some(drag) = drag {
+                    plot_ui.ctx().set_cursor_icon(CursorIcon::ResizeHorizontal);
+                    plot_ui.translate_bounds(Vec2 { x: -drag.x, y: 0. });
+                }
+
+                // Custom zoom:
+                let bounds = plot_ui.plot_bounds();
+                let mut bounds_min = bounds.min();
+                let mut bounds_max = bounds.max();
+                // y: zoom:
+                let scroll_y = plot_ui.ctx().input(|i| f64::from(i.scroll_delta.y));
+                if scroll_y != 0. {
+                    let zoom_factor = (scroll_y / 200.).exp();
+                    bounds_min[1] /= zoom_factor;
+                    bounds_max[1] /= zoom_factor;
+                }
+                // x zoom:
+                // This seems to eat the raw scroll delta.
+                let ctrl_scroll_factor = plot_ui.ctx().input(|i| f64::from(i.zoom_delta()));
+                bounds_min[0] /= ctrl_scroll_factor;
+                bounds_max[0] /= ctrl_scroll_factor;
+                // Apply:
+                plot_ui.set_plot_bounds(PlotBounds::from_min_max(bounds_min, bounds_max));
+            });
+        };
+
+        CentralPanel::default().show(ctx, |ui| {
+            ui.vertical(body);
         });
     }
 }
