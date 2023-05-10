@@ -27,6 +27,11 @@ impl GaussianSum {
     }
 
     #[must_use]
+    pub fn evaluate_integral(&self, x: f64) -> f64 {
+        self.components().map(|g| g.evaluate_integral(x)).sum()
+    }
+
+    #[must_use]
     /// The overall extent of the sum, or the union of the extents of the individual components
     /// (where each extent comprises the interval `σ` standard deviations out from the mean).
     pub fn extent(&self, σ: f64) -> RangeInclusive<f64> {

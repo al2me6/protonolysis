@@ -1,3 +1,7 @@
+use std::f64::consts::FRAC_1_SQRT_2;
+
+use super::error_function::erfc;
+
 pub const FRAC_1_SQRT_2PI: f64 = 0.398_942_280_4;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -28,5 +32,11 @@ impl Gaussian {
             * FRAC_1_SQRT_2PI
             * σ_inv
             * (-0.5 * σ_inv * σ_inv * (x - self.μ) * (x - self.μ)).exp()
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn evaluate_integral(&self, x: f64) -> f64 {
+        0.5 * erfc(-(x - self.μ) / self.σ * FRAC_1_SQRT_2) * self.normalize
     }
 }
