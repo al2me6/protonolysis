@@ -1,3 +1,4 @@
+pub mod error_function;
 pub mod gaussian;
 pub mod gaussian_sum;
 
