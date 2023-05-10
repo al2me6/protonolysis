@@ -10,7 +10,7 @@
 
 pub mod numerics;
 pub mod peak;
-pub mod protonolysis;
+pub mod ui;
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
@@ -22,7 +22,7 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Protonolysis",
         native_options,
-        Box::new(|cc| Box::new(protonolysis::Protonolysis::new(cc))),
+        Box::new(|cc| Box::new(ui::Protonolysis::new(cc))),
     )?;
     Ok(())
 }
@@ -36,7 +36,7 @@ fn main() {
         eframe::start_web(
             "canvas",
             web_options,
-            Box::new(|cc| Box::new(protonolysis::Protonolysis::new(cc))),
+            Box::new(|cc| Box::new(ui::Protonolysis::new(cc))),
         )
         .await
         .expect("failed to start eframe");
