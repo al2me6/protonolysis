@@ -158,12 +158,9 @@ impl eframe::App for Protonolysis {
                         });
                         row.col(|ui| {
                             let mut button = |enabled, text, hover| {
-                                ui.add_enabled(
-                                    enabled,
-                                    Button::new(text).min_size(Vec2 { x: 20., y: 0. }),
-                                )
-                                .on_hover_text(hover)
-                                .clicked()
+                                ui.add_enabled(enabled, Button::new(text))
+                                    .on_hover_text(hover)
+                                    .clicked()
                             };
                             if button(i > 0, "↑", "Move up") {
                                 self.peak.splitters.swap(i - 1, i);
@@ -171,8 +168,8 @@ impl eframe::App for Protonolysis {
                             if button(i < self.peak.splitters.len() - 1, "↓", "Move down") {
                                 self.peak.splitters.swap(i, i + 1);
                             }
-                            // FIXME: positioning of x needs OTF feature `case`.
-                            if button(true, "×", "Delete") {
+                            // U+2717 BALLOT X.
+                            if button(true, "\u{2717}", "Delete") {
                                 self.peak.splitters.remove(i);
                                 self.clamp_view_stage();
                             }
