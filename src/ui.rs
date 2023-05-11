@@ -252,11 +252,12 @@ impl Protonolysis {
 
     fn peak_viewer(&mut self, ui: &mut Ui) {
         let line_height = ui.text_style_height(&TextStyle::Body);
+        let line_spacing = ui.spacing().item_spacing.y;
         let Vec2 {
             x: available_width,
             y: available_height,
         } = ui.available_size();
-        let plot_height = available_height - line_height;
+        let plot_height = available_height - (line_height + line_spacing) * 2.;
 
         let waveform = self
             .peak
@@ -289,6 +290,7 @@ impl Protonolysis {
                 &mut self.linked_x_axis,
             );
         });
+        ui.vertical_centered(|ui| ui.label("δ (ppm)"));
 
         // Interaction info.
         ui.horizontal(|ui| {
