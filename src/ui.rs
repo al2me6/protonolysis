@@ -26,6 +26,45 @@ macro_rules! load_font {
     };
 }
 
+fn peak_viewer_plot(plot_ui: &mut PlotUi, line: Line, x_axis: &mut (f64, f64)) {
+    plot_ui.line(line);
+
+    if !plot_ui.plot_hovered() {
+        return;
+    }
+
+    // FIXME: touch support.
+
+    // Custom pan:
+    let drag = plot_ui
+        .ctx()
+        .input(|i| i.pointer.primary_down().then(|| i.pointer.delta()));
+    if let Some(drag) = drag {
+        plot_ui.ctx().set_cursor_icon(CursorIcon::ResizeHorizontal);
+        plot_ui.translate_bounds(Vec2 { x: -drag.x, y: 0. });
+    }
+
+    // Custom zoom:
+    let bounds = plot_ui.plot_bounds();
+    let mut bounds_min = bounds.min();
+    let mut bounds_max = bounds.max();
+    // y: zoom:
+    let scroll_y = plot_ui.ctx().input(|i| f64::from(i.scroll_delta.y));
+    if scroll_y != 0. {
+        let zoom_factor = (scroll_y / 200.).exp();
+        bounds_min[1] /= zoom_factor;
+        bounds_max[1] /= zoom_factor;
+    }
+    // x zoom (ctrl+scroll):
+    // This seems to eat the raw scroll delta.
+    let ctrl_scroll_factor = plot_ui.ctx().input(|i| f64::from(i.zoom_delta()));
+    bounds_min[0] /= ctrl_scroll_factor;
+    bounds_max[0] /= ctrl_scroll_factor;
+    // Apply:
+    *x_axis = (bounds_min[0], bounds_max[0]);
+    plot_ui.set_plot_bounds(PlotBounds::from_min_max(bounds_min, bounds_max));
+}
+
 impl Protonolysis {
     const DEFAULT_X: f64 = 0.15;
     const DEFAULT_Y: f64 = 300.;
@@ -237,8 +276,9 @@ impl Protonolysis {
             .allow_scroll(false)
             .allow_zoom(false)
             .height(plot_height);
-        let draw_peak_plot = |plot_ui: &mut PlotUi| {
-            plot_ui.line(
+        peak_plot.show(ui, |plot_ui| {
+            peak_viewer_plot(
+                plot_ui,
                 Line::new(PlotPoints::from_explicit_callback(
                     move |x| waveform.evaluate(x),
                     ..,
@@ -246,44 +286,9 @@ impl Protonolysis {
                 ))
                 .width(2.)
                 .fill(0.),
+                &mut self.linked_x_axis,
             );
-
-            if !plot_ui.plot_hovered() {
-                return;
-            }
-
-            // FIXME: touch support.
-
-            // Custom pan:
-            let drag = plot_ui
-                .ctx()
-                .input(|i| i.pointer.primary_down().then(|| i.pointer.delta()));
-            if let Some(drag) = drag {
-                plot_ui.ctx().set_cursor_icon(CursorIcon::ResizeHorizontal);
-                plot_ui.translate_bounds(Vec2 { x: -drag.x, y: 0. });
-            }
-
-            // Custom zoom:
-            let bounds = plot_ui.plot_bounds();
-            let mut bounds_min = bounds.min();
-            let mut bounds_max = bounds.max();
-            // y: zoom:
-            let scroll_y = plot_ui.ctx().input(|i| f64::from(i.scroll_delta.y));
-            if scroll_y != 0. {
-                let zoom_factor = (scroll_y / 200.).exp();
-                bounds_min[1] /= zoom_factor;
-                bounds_max[1] /= zoom_factor;
-            }
-            // x zoom (ctrl+scroll):
-            // This seems to eat the raw scroll delta.
-            let ctrl_scroll_factor = plot_ui.ctx().input(|i| f64::from(i.zoom_delta()));
-            bounds_min[0] /= ctrl_scroll_factor;
-            bounds_max[0] /= ctrl_scroll_factor;
-            // Apply:
-            self.linked_x_axis = (bounds_min[0], bounds_max[0]);
-            plot_ui.set_plot_bounds(PlotBounds::from_min_max(bounds_min, bounds_max));
-        };
-        peak_plot.show(ui, draw_peak_plot);
+        });
 
         // Interaction info.
         ui.horizontal(|ui| {
