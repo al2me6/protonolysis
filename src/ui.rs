@@ -1,18 +1,18 @@
-use eframe::egui::plot::{Line, Plot, PlotBounds, PlotPoints};
+use eframe::egui::plot::{Line, Plot, PlotBounds, PlotPoints, PlotUi};
 use eframe::egui::{
     Align, Button, CentralPanel, Context, CursorIcon, DragValue, FontData, FontDefinitions,
-    FontTweak, Grid, Layout, SidePanel, Slider, Ui,
+    FontTweak, Grid, Layout, SidePanel, Slider, TextStyle, Ui,
 };
-use eframe::epaint::{FontFamily, Vec2};
+use eframe::epaint::{Color32, FontFamily, Rect, Vec2};
 use egui_extras::{Column, TableBuilder};
 
-use crate::numerics::gaussian_sum::GaussianSum;
 use crate::peak::{self, Peak, Splitter};
 
 pub struct Protonolysis {
     field_strength: f64,
     peak: Peak,
     view_stage: usize,
+    linked_x_axis: (f64, f64),
 }
 
 macro_rules! load_font {
@@ -26,6 +26,10 @@ macro_rules! load_font {
 }
 
 impl Protonolysis {
+    const DEFAULT_X: f64 = 0.15;
+    const DEFAULT_Y: f64 = 300.;
+    const SAMPLES: usize = 5000;
+
     #[must_use]
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let mut fonts = FontDefinitions::empty();
@@ -59,6 +63,7 @@ impl Protonolysis {
                 fwhm: 1.,
             },
             view_stage: 1,
+            linked_x_axis: (-Self::DEFAULT_X, Self::DEFAULT_X),
         }
     }
 
@@ -73,6 +78,131 @@ impl Protonolysis {
 
     fn clamp_view_stage(&mut self) {
         self.view_stage = self.view_stage.min(self.peak.splitters.len());
+    }
+
+    fn peak_viewer(&mut self, ui: &mut Ui) {
+        let line_height = ui.text_style_height(&TextStyle::Body);
+        let Vec2 {
+            x: available_width,
+            y: available_height,
+        } = ui.available_size();
+        let plot_height = available_height - line_height;
+
+        let waveform = self
+            .peak
+            .build_multiplet_cascade()
+            .nth_waveform(self.view_stage, self.field_strength);
+        let waveform_clone = waveform.clone();
+
+        let peak_plot = Plot::new("peak_plot")
+            .include_x(-Self::DEFAULT_X)
+            .include_x(Self::DEFAULT_X)
+            .include_y(Self::DEFAULT_Y * -0.05)
+            .include_y(Self::DEFAULT_Y * 1.1)
+            .show_x(false)
+            .show_y(false)
+            .allow_drag(false)
+            .allow_boxed_zoom(false)
+            .allow_scroll(false)
+            .allow_zoom(false)
+            .height(plot_height);
+        let peak_line = Line::new(PlotPoints::from_explicit_callback(
+            move |x| waveform.evaluate(x),
+            ..,
+            Self::SAMPLES,
+        ))
+        .width(2.)
+        .fill(0.);
+
+        let integral_plot = Plot::new("integral_plot")
+            .include_x(-Self::DEFAULT_X)
+            .include_x(Self::DEFAULT_X)
+            .include_y(-0.1)
+            .include_y(1.5)
+            .show_axes([false; 2])
+            .show_background(false)
+            .show_x(false)
+            .show_y(false)
+            .allow_boxed_zoom(false)
+            .allow_double_click_reset(false)
+            .allow_drag(false)
+            .allow_scroll(false)
+            .allow_zoom(false);
+        let extent = waveform_clone.extent(10.);
+        let integral_line = Line::new(PlotPoints::from_explicit_callback(
+            move |x| waveform_clone.evaluate_integral(x),
+            extent,
+            Self::SAMPLES,
+        ))
+        .width(2.)
+        .color(Color32::GREEN);
+
+        let draw_peak_plot = |plot_ui: &mut PlotUi| {
+            plot_ui.line(peak_line);
+
+            if !plot_ui.plot_hovered() {
+                return;
+            }
+
+            // FIXME: touch support.
+
+            // Custom pan:
+            let drag = plot_ui
+                .ctx()
+                .input(|i| i.pointer.primary_down().then(|| i.pointer.delta()));
+            if let Some(drag) = drag {
+                plot_ui.ctx().set_cursor_icon(CursorIcon::ResizeHorizontal);
+                plot_ui.translate_bounds(Vec2 { x: -drag.x, y: 0. });
+            }
+
+            // Custom zoom:
+            let bounds = plot_ui.plot_bounds();
+            let mut bounds_min = bounds.min();
+            let mut bounds_max = bounds.max();
+            // y: zoom:
+            let scroll_y = plot_ui.ctx().input(|i| f64::from(i.scroll_delta.y));
+            if scroll_y != 0. {
+                let zoom_factor = (scroll_y / 200.).exp();
+                bounds_min[1] /= zoom_factor;
+                bounds_max[1] /= zoom_factor;
+            }
+            // x zoom (ctrl+scroll):
+            // This seems to eat the raw scroll delta.
+            let ctrl_scroll_factor = plot_ui.ctx().input(|i| f64::from(i.zoom_delta()));
+            bounds_min[0] /= ctrl_scroll_factor;
+            bounds_max[0] /= ctrl_scroll_factor;
+            // Apply:
+            self.linked_x_axis = (bounds_min[0], bounds_max[0]);
+            plot_ui.set_plot_bounds(PlotBounds::from_min_max(bounds_min, bounds_max));
+        };
+        peak_plot.height(plot_height).show(ui, draw_peak_plot);
+
+        // Interaction info.
+        ui.horizontal(|ui| {
+            ui.label("Controls:");
+            ui.code("drag");
+            ui.label("to pan,");
+            ui.code("scroll");
+            ui.label("to zoom vertically,");
+            ui.code("ctrl+scroll");
+            ui.label("to zoom horizontally.");
+        });
+
+        let draw_integral_plot = |ui: &mut Ui| {
+            integral_plot
+                .show(ui, |plot_ui: &mut PlotUi| {
+                    plot_ui.line(integral_line);
+                    let bounds = plot_ui.plot_bounds();
+                    let (mut bounds_min, mut bounds_max) = (bounds.min(), bounds.max());
+                    (bounds_min[0], bounds_max[0]) = self.linked_x_axis;
+                    plot_ui.set_plot_bounds(PlotBounds::from_min_max(bounds_min, bounds_max));
+                })
+                .response
+        };
+        ui.put(
+            Rect::from_x_y_ranges(0.0..=available_width, 0.0..=(plot_height * 0.2)),
+            draw_integral_plot,
+        );
     }
 }
 
@@ -209,90 +339,8 @@ impl eframe::App for Protonolysis {
 
         CentralPanel::default().show(ctx, |ui| {
             ui.vertical(|ui| {
-                peak_viewer(
-                    ui,
-                    self.peak
-                        .build_multiplet_cascade()
-                        .nth_waveform(self.view_stage, self.field_strength),
-                );
+                self.peak_viewer(ui);
             });
         });
     }
-}
-
-fn controls_string(ui: &mut Ui) {
-    ui.horizontal(|ui| {
-        ui.label("Controls:");
-        ui.code("drag");
-        ui.label("to pan,");
-        ui.code("scroll");
-        ui.label("to zoom vertically,");
-        ui.code("ctrl+scroll");
-        ui.label("to zoom horizontally.");
-    });
-}
-
-fn peak_viewer(ui: &mut Ui, waveform: GaussianSum) {
-    const DEFAULT_X: f64 = 0.15;
-    const DEFAULT_Y: f64 = 300.;
-
-    controls_string(ui);
-
-    let plot = Plot::new("main")
-        .include_x(-DEFAULT_X)
-        .include_x(DEFAULT_X)
-        .include_y(DEFAULT_Y * -0.05)
-        .include_y(DEFAULT_Y * 1.1)
-        .show_x(false)
-        .show_y(false)
-        .allow_drag(false)
-        .allow_boxed_zoom(false)
-        .allow_scroll(false)
-        .allow_zoom(false);
-
-    let line = Line::new(PlotPoints::from_explicit_callback(
-        move |x| waveform.evaluate(x),
-        ..,
-        5000,
-    ))
-    .width(2.)
-    .fill(0.);
-
-    plot.show(ui, |plot_ui| {
-        plot_ui.line(line);
-
-        if !plot_ui.plot_hovered() {
-            return;
-        }
-
-        // FIXME: touch support.
-
-        // Custom pan:
-        let drag = plot_ui
-            .ctx()
-            .input(|i| i.pointer.primary_down().then(|| i.pointer.delta()));
-        if let Some(drag) = drag {
-            plot_ui.ctx().set_cursor_icon(CursorIcon::ResizeHorizontal);
-            plot_ui.translate_bounds(Vec2 { x: -drag.x, y: 0. });
-        }
-
-        // Custom zoom:
-        let bounds = plot_ui.plot_bounds();
-        let mut bounds_min = bounds.min();
-        let mut bounds_max = bounds.max();
-        // y: zoom:
-        let scroll_y = plot_ui.ctx().input(|i| f64::from(i.scroll_delta.y));
-        if scroll_y != 0. {
-            let zoom_factor = (scroll_y / 200.).exp();
-            bounds_min[1] /= zoom_factor;
-            bounds_max[1] /= zoom_factor;
-        }
-        // x zoom (ctrl+scroll):
-        // This seems to eat the raw scroll delta.
-        let ctrl_scroll_factor = plot_ui.ctx().input(|i| f64::from(i.zoom_delta()));
-        bounds_min[0] /= ctrl_scroll_factor;
-        bounds_max[0] /= ctrl_scroll_factor;
-        // Apply:
-        plot_ui.set_plot_bounds(PlotBounds::from_min_max(bounds_min, bounds_max));
-    });
 }
