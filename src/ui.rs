@@ -80,6 +80,131 @@ impl Protonolysis {
         self.view_stage = self.view_stage.min(self.peak.splitters.len());
     }
 
+    fn controls(&mut self, ui: &mut Ui) {
+        ui.heading("Protonolysis");
+
+        ui.separator();
+
+        Grid::new("controls_sliders_instrument")
+            .num_columns(2)
+            .show(ui, |ui| {
+                ui.label("Instrument frequency:");
+                ui.add(
+                    Slider::new(&mut self.field_strength, 40.0..=1200.0)
+                        .fixed_decimals(0)
+                        .step_by(10.)
+                        .suffix(" MHz"),
+                );
+                ui.end_row();
+
+                ui.label("Field strength:");
+                ui.add_enabled(
+                    false,
+                    DragValue::new(&mut peak::mhz_to_tesla(self.field_strength))
+                        .max_decimals(1)
+                        .suffix(" T"),
+                );
+                ui.end_row();
+            });
+
+        ui.separator();
+
+        ui.label("Configure coupled protons:");
+        ui.horizontal(|ui| {
+            if ui.button("Add").clicked() {
+                self.peak.splitters.push(Splitter::default());
+                self.try_increment_view_stage();
+            }
+            if ui.button("Sort by J").clicked() {
+                self.peak.canonicalize();
+            }
+        });
+
+        let table = TableBuilder::new(ui)
+            .striped(true)
+            .cell_layout(Layout::left_to_right(Align::Center))
+            .column(Column::auto_with_initial_suggestion(20.))
+            .columns(Column::auto(), 3)
+            .column(Column::remainder())
+            .header(20., |mut header| {
+                header.col(|_ui| {});
+                header.col(|ui| {
+                    ui.strong("Count");
+                });
+                header.col(|ui| {
+                    ui.strong("J (Hz)");
+                });
+                header.col(|ui| {
+                    ui.strong("Pattern");
+                });
+                header.col(|ui| {
+                    ui.strong("Action");
+                });
+            });
+        table.body(|mut body| {
+            let mut i = 0;
+            while i < self.peak.splitters.len() {
+                let row = |mut row: egui_extras::TableRow| {
+                    row.col(|ui| {
+                        ui.label((i + 1).to_string());
+                    });
+                    let splitter = &mut self.peak.splitters[i];
+                    row.col(|ui| {
+                        ui.add(Slider::new(&mut splitter.n, 1..=10));
+                    });
+                    row.col(|ui| {
+                        ui.add(Slider::new(&mut splitter.j, 0.0..=20.0).fixed_decimals(1));
+                    });
+                    row.col(|ui| {
+                        ui.label(splitter.name_pattern());
+                    });
+                    row.col(|ui| {
+                        let mut button = |enabled, text, hover| {
+                            ui.add_enabled(enabled, Button::new(text))
+                                .on_hover_text(hover)
+                                .clicked()
+                        };
+                        if button(i > 0, "↑", "Move up") {
+                            self.peak.splitters.swap(i - 1, i);
+                        }
+                        if button(i < self.peak.splitters.len() - 1, "↓", "Move down") {
+                            self.peak.splitters.swap(i, i + 1);
+                        }
+                        // U+2717 BALLOT X.
+                        if button(true, "\u{2717}", "Delete") {
+                            self.peak.splitters.remove(i);
+                            self.clamp_view_stage();
+                        }
+                    });
+                };
+                body.row(18.0, row);
+                i += 1;
+            }
+        });
+
+        ui.separator();
+
+        Grid::new("controls_sliders_view")
+            .num_columns(2)
+            .show(ui, |ui| {
+                ui.label("Peak FWHM:")
+                    .on_hover_text("Full width at half maximum (i.e., broadness) of peaks.");
+                ui.add(
+                    Slider::new(&mut self.peak.fwhm, 0.1..=4.0)
+                        .fixed_decimals(1)
+                        .suffix(" Hz"),
+                );
+                ui.end_row();
+
+                ui.label("Apply splitting up to:");
+                ui.add(Slider::new(
+                    &mut self.view_stage,
+                    0..=self.peak.splitters.len(),
+                ));
+                ui.end_row();
+            });
+    }
+
     fn peak_viewer(&mut self, ui: &mut Ui) {
         let line_height = ui.text_style_height(&TextStyle::Body);
         let Vec2 {
@@ -208,139 +333,12 @@ impl Protonolysis {
 
 impl eframe::App for Protonolysis {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        let controls = |ui: &mut Ui| {
-            ui.heading("Protonolysis");
-
-            ui.separator();
-
-            Grid::new("controls_sliders_instrument")
-                .num_columns(2)
-                .show(ui, |ui| {
-                    ui.label("Instrument frequency:");
-                    ui.add(
-                        Slider::new(&mut self.field_strength, 40.0..=1200.0)
-                            .fixed_decimals(0)
-                            .step_by(10.)
-                            .suffix(" MHz"),
-                    );
-                    ui.end_row();
-
-                    ui.label("Field strength:");
-                    ui.add_enabled(
-                        false,
-                        DragValue::new(&mut peak::mhz_to_tesla(self.field_strength))
-                            .max_decimals(1)
-                            .suffix(" T"),
-                    );
-                    ui.end_row();
-                });
-
-            ui.separator();
-
-            ui.label("Configure coupled protons:");
-            ui.horizontal(|ui| {
-                if ui.button("Add").clicked() {
-                    self.peak.splitters.push(Splitter::default());
-                    self.try_increment_view_stage();
-                }
-                if ui.button("Sort by J").clicked() {
-                    self.peak.canonicalize();
-                }
-            });
-
-            let table = TableBuilder::new(ui)
-                .striped(true)
-                .cell_layout(Layout::left_to_right(Align::Center))
-                .column(Column::auto_with_initial_suggestion(20.))
-                .columns(Column::auto(), 3)
-                .column(Column::remainder())
-                .header(20., |mut header| {
-                    header.col(|_ui| {});
-                    header.col(|ui| {
-                        ui.strong("Count");
-                    });
-                    header.col(|ui| {
-                        ui.strong("J (Hz)");
-                    });
-                    header.col(|ui| {
-                        ui.strong("Pattern");
-                    });
-                    header.col(|ui| {
-                        ui.strong("Action");
-                    });
-                });
-            table.body(|mut body| {
-                let mut i = 0;
-                while i < self.peak.splitters.len() {
-                    let row = |mut row: egui_extras::TableRow| {
-                        row.col(|ui| {
-                            ui.label((i + 1).to_string());
-                        });
-                        let splitter = &mut self.peak.splitters[i];
-                        row.col(|ui| {
-                            ui.add(Slider::new(&mut splitter.n, 1..=10));
-                        });
-                        row.col(|ui| {
-                            ui.add(Slider::new(&mut splitter.j, 0.0..=20.0).fixed_decimals(1));
-                        });
-                        row.col(|ui| {
-                            ui.label(splitter.name_pattern());
-                        });
-                        row.col(|ui| {
-                            let mut button = |enabled, text, hover| {
-                                ui.add_enabled(enabled, Button::new(text))
-                                    .on_hover_text(hover)
-                                    .clicked()
-                            };
-                            if button(i > 0, "↑", "Move up") {
-                                self.peak.splitters.swap(i - 1, i);
-                            }
-                            if button(i < self.peak.splitters.len() - 1, "↓", "Move down") {
-                                self.peak.splitters.swap(i, i + 1);
-                            }
-                            // U+2717 BALLOT X.
-                            if button(true, "\u{2717}", "Delete") {
-                                self.peak.splitters.remove(i);
-                                self.clamp_view_stage();
-                            }
-                        });
-                    };
-                    body.row(18.0, row);
-                    i += 1;
-                }
-            });
-
-            ui.separator();
-
-            Grid::new("controls_sliders_view")
-                .num_columns(2)
-                .show(ui, |ui| {
-                    ui.label("Peak FWHM:")
-                        .on_hover_text("Full width at half maximum (i.e., broadness) of peaks.");
-                    ui.add(
-                        Slider::new(&mut self.peak.fwhm, 0.1..=4.0)
-                            .fixed_decimals(1)
-                            .suffix(" Hz"),
-                    );
-                    ui.end_row();
-
-                    ui.label("Apply splitting up to:");
-                    ui.add(Slider::new(
-                        &mut self.view_stage,
-                        0..=self.peak.splitters.len(),
-                    ));
-                    ui.end_row();
-                });
-        };
-
         SidePanel::right("controls")
             .resizable(false)
-            .show(ctx, controls);
+            .show(ctx, |ui| self.controls(ui));
 
         CentralPanel::default().show(ctx, |ui| {
-            ui.vertical(|ui| {
-                self.peak_viewer(ui);
-            });
+            self.peak_viewer(ui);
         });
     }
 }
