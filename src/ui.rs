@@ -12,6 +12,7 @@ pub struct Protonolysis {
     field_strength: f64,
     peak: Peak,
     view_stage: usize,
+    show_integral: bool,
     linked_x_axis: (f64, f64),
 }
 
@@ -63,6 +64,7 @@ impl Protonolysis {
                 fwhm: 1.,
             },
             view_stage: 1,
+            show_integral: true,
             linked_x_axis: (-Self::DEFAULT_X, Self::DEFAULT_X),
         }
     }
@@ -202,6 +204,10 @@ impl Protonolysis {
                     0..=self.peak.splitters.len(),
                 ));
                 ui.end_row();
+
+                ui.label("");
+                ui.checkbox(&mut self.show_integral, "Show peak integral");
+                ui.end_row();
             });
     }
 
@@ -231,39 +237,16 @@ impl Protonolysis {
             .allow_scroll(false)
             .allow_zoom(false)
             .height(plot_height);
-        let peak_line = Line::new(PlotPoints::from_explicit_callback(
-            move |x| waveform.evaluate(x),
-            ..,
-            Self::SAMPLES,
-        ))
-        .width(2.)
-        .fill(0.);
-
-        let integral_plot = Plot::new("integral_plot")
-            .include_x(-Self::DEFAULT_X)
-            .include_x(Self::DEFAULT_X)
-            .include_y(-0.1)
-            .include_y(1.5)
-            .show_axes([false; 2])
-            .show_background(false)
-            .show_x(false)
-            .show_y(false)
-            .allow_boxed_zoom(false)
-            .allow_double_click_reset(false)
-            .allow_drag(false)
-            .allow_scroll(false)
-            .allow_zoom(false);
-        let extent = waveform_clone.extent(10.);
-        let integral_line = Line::new(PlotPoints::from_explicit_callback(
-            move |x| waveform_clone.evaluate_integral(x),
-            extent,
-            Self::SAMPLES,
-        ))
-        .width(2.)
-        .color(Color32::GREEN);
-
         let draw_peak_plot = |plot_ui: &mut PlotUi| {
-            plot_ui.line(peak_line);
+            plot_ui.line(
+                Line::new(PlotPoints::from_explicit_callback(
+                    move |x| waveform.evaluate(x),
+                    ..,
+                    Self::SAMPLES,
+                ))
+                .width(2.)
+                .fill(0.),
+            );
 
             if !plot_ui.plot_hovered() {
                 return;
@@ -300,7 +283,7 @@ impl Protonolysis {
             self.linked_x_axis = (bounds_min[0], bounds_max[0]);
             plot_ui.set_plot_bounds(PlotBounds::from_min_max(bounds_min, bounds_max));
         };
-        peak_plot.height(plot_height).show(ui, draw_peak_plot);
+        peak_plot.show(ui, draw_peak_plot);
 
         // Interaction info.
         ui.horizontal(|ui| {
@@ -313,10 +296,38 @@ impl Protonolysis {
             ui.label("to zoom horizontally.");
         });
 
+        if !self.show_integral {
+            return;
+        }
+
+        let integral_plot = Plot::new("integral_plot")
+            .include_x(-Self::DEFAULT_X)
+            .include_x(Self::DEFAULT_X)
+            .include_y(-0.1)
+            .include_y(1.5)
+            .show_axes([false; 2])
+            .show_background(false)
+            .show_x(false)
+            .show_y(false)
+            .allow_boxed_zoom(false)
+            .allow_double_click_reset(false)
+            .allow_drag(false)
+            .allow_scroll(false)
+            .allow_zoom(false);
+        let extent = waveform_clone.extent(10.);
         let draw_integral_plot = |ui: &mut Ui| {
             integral_plot
                 .show(ui, |plot_ui: &mut PlotUi| {
-                    plot_ui.line(integral_line);
+                    plot_ui.line(
+                        Line::new(PlotPoints::from_explicit_callback(
+                            move |x| waveform_clone.evaluate_integral(x),
+                            extent,
+                            Self::SAMPLES,
+                        ))
+                        .width(2.)
+                        .color(Color32::GREEN),
+                    );
+
                     let bounds = plot_ui.plot_bounds();
                     let (mut bounds_min, mut bounds_max) = (bounds.min(), bounds.max());
                     (bounds_min[0], bounds_max[0]) = self.linked_x_axis;
