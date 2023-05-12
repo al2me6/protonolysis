@@ -41,6 +41,8 @@ impl Gaussian {
         0.5 * erfc(-(x - self.μ) / self.σ * FRAC_1_SQRT_2) * self.normalize
     }
 
+    #[must_use]
+    /// The interval that is `σ` standard deviations out from the mean.
     pub fn extent(&self, σ: f64) -> RangeInclusive<f64> {
         (self.μ - self.σ * σ)..=(self.μ + self.σ * σ)
     }
