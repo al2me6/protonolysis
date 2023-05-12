@@ -96,6 +96,10 @@ impl Protonolysis {
             .push("SourceCodePro".to_owned());
         cc.egui_ctx.set_fonts(fonts);
 
+        let mut style = (*cc.egui_ctx.style()).clone();
+        style.spacing.item_spacing.y = 5.;
+        cc.egui_ctx.set_style(style);
+
         Self {
             field_strength: 600.,
             peak: Peak {
@@ -161,13 +165,14 @@ impl Protonolysis {
             }
         });
 
+        let row_height = ui.text_style_height(&TextStyle::Body) + ui.spacing().item_spacing.y;
         let table = TableBuilder::new(ui)
             .striped(true)
             .cell_layout(Layout::left_to_right(Align::Center))
             .column(Column::auto_with_initial_suggestion(20.))
             .columns(Column::auto(), 3)
             .column(Column::remainder())
-            .header(20., |mut header| {
+            .header(row_height, |mut header| {
                 header.col(|_ui| {});
                 header.col(|ui| {
                     ui.strong("Count");
@@ -218,7 +223,7 @@ impl Protonolysis {
                         }
                     });
                 };
-                body.row(18.0, row);
+                body.row(row_height, row);
                 i += 1;
             }
         });
@@ -251,13 +256,13 @@ impl Protonolysis {
     }
 
     fn peak_viewer(&mut self, ui: &mut Ui) {
-        let line_height = ui.text_style_height(&TextStyle::Body);
-        let line_spacing = ui.spacing().item_spacing.y;
         let Vec2 {
             x: available_width,
             y: available_height,
         } = ui.available_size();
-        let plot_height = available_height - (line_height + line_spacing) * 2.;
+        let placement_origin = ui.next_widget_position();
+        let plot_height = available_height
+            - (ui.text_style_height(&TextStyle::Body) + ui.spacing().item_spacing.y) * 2.;
 
         let waveform = self
             .peak
@@ -343,7 +348,10 @@ impl Protonolysis {
                 .response
         };
         ui.put(
-            Rect::from_x_y_ranges(0.0..=available_width, 0.0..=(plot_height * 0.2)),
+            Rect::from_min_size(
+                placement_origin,
+                (available_width, plot_height * 0.2).into(),
+            ),
             draw_integral_plot,
         );
     }
