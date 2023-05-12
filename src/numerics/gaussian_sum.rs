@@ -36,7 +36,7 @@ impl GaussianSum {
     /// (where each extent comprises the interval `σ` standard deviations out from the mean).
     pub fn extent(&self, σ: f64) -> RangeInclusive<f64> {
         self.components()
-            .map(|g| (g.μ - g.σ * σ, g.μ + g.σ * σ))
+            .map(|g| g.extent(σ).into_inner())
             .reduce(|(l1, r1), (l2, r2)| (l1.min(l2), r1.max(r2)))
             .map_or(0.0..=0.0, |(l, r)| l..=r)
     }

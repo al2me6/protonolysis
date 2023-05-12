@@ -13,6 +13,7 @@ pub struct Protonolysis {
     peak: Peak,
     view_stage: usize,
     show_integral: bool,
+    show_peaklets: bool,
     linked_x_axis: (f64, f64),
 }
 
@@ -108,6 +109,7 @@ impl Protonolysis {
             },
             view_stage: 1,
             show_integral: true,
+            show_peaklets: false,
             linked_x_axis: (-Self::DEFAULT_X, Self::DEFAULT_X),
         }
     }
@@ -252,6 +254,10 @@ impl Protonolysis {
                 ui.label("");
                 ui.checkbox(&mut self.show_integral, "Show peak integral");
                 ui.end_row();
+
+                ui.label("");
+                ui.checkbox(&mut self.show_peaklets, "Show individual contributions");
+                ui.end_row();
             });
     }
 
@@ -268,7 +274,6 @@ impl Protonolysis {
             .peak
             .build_multiplet_cascade()
             .nth_waveform(self.view_stage, self.field_strength);
-        let waveform_clone = waveform.clone();
 
         let peak_plot = Plot::new("peak_plot")
             .include_x(-Self::DEFAULT_X)
@@ -283,10 +288,11 @@ impl Protonolysis {
             .allow_zoom(false)
             .height(plot_height);
         peak_plot.show(ui, |plot_ui| {
+            let waveform_clone = waveform.clone();
             peak_viewer_plot(
                 plot_ui,
                 Line::new(PlotPoints::from_explicit_callback(
-                    move |x| waveform.evaluate(x),
+                    move |x| waveform_clone.evaluate(x),
                     ..,
                     Self::SAMPLES,
                 ))
@@ -294,6 +300,20 @@ impl Protonolysis {
                 .fill(0.),
                 &mut self.linked_x_axis,
             );
+
+            if !self.show_peaklets {
+                return;
+            }
+            for &peaklet in waveform.components() {
+                plot_ui.line(
+                    Line::new(PlotPoints::from_explicit_callback(
+                        move |x| peaklet.evaluate(x),
+                        peaklet.extent(4.),
+                        Self::SAMPLES / 10,
+                    ))
+                    .color(Color32::LIGHT_BLUE),
+                );
+            }
         });
         ui.vertical_centered(|ui| ui.label("δ (ppm)"));
 
@@ -326,15 +346,15 @@ impl Protonolysis {
             .allow_drag(false)
             .allow_scroll(false)
             .allow_zoom(false);
-        let extent = waveform_clone.extent(10.);
         let draw_integral_plot = |ui: &mut Ui| {
             integral_plot
                 .show(ui, |plot_ui: &mut PlotUi| {
+                    let extent = waveform.extent(10.);
                     plot_ui.line(
                         Line::new(PlotPoints::from_explicit_callback(
-                            move |x| waveform_clone.evaluate_integral(x),
+                            move |x| waveform.evaluate_integral(x),
                             extent,
-                            Self::SAMPLES,
+                            Self::SAMPLES / 2,
                         ))
                         .width(2.)
                         .color(Color32::GREEN),

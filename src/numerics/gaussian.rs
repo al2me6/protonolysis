@@ -1,4 +1,5 @@
 use std::f64::consts::FRAC_1_SQRT_2;
+use std::ops::RangeInclusive;
 
 use super::error_function::erfc;
 
@@ -38,5 +39,9 @@ impl Gaussian {
     #[inline]
     pub fn evaluate_integral(&self, x: f64) -> f64 {
         0.5 * erfc(-(x - self.μ) / self.σ * FRAC_1_SQRT_2) * self.normalize
+    }
+
+    pub fn extent(&self, σ: f64) -> RangeInclusive<f64> {
+        (self.μ - self.σ * σ)..=(self.μ + self.σ * σ)
     }
 }
