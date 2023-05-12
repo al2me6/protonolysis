@@ -47,8 +47,7 @@ fn peak_viewer_plot(plot_ui: &mut PlotUi, line: Line, x_axis: &mut (f64, f64)) {
 
     // Custom zoom:
     let bounds = plot_ui.plot_bounds();
-    let mut bounds_min = bounds.min();
-    let mut bounds_max = bounds.max();
+    let (mut bounds_min, mut bounds_max) = (bounds.min(), bounds.max());
     // y: zoom:
     let scroll_y = plot_ui.ctx().input(|i| f64::from(i.scroll_delta.y));
     if scroll_y != 0. {
@@ -99,6 +98,7 @@ impl Protonolysis {
 
         let mut style = (*cc.egui_ctx.style()).clone();
         style.spacing.item_spacing.y = 5.;
+        style.spacing.slider_width = 125.;
         cc.egui_ctx.set_style(style);
 
         Self {
@@ -198,6 +198,7 @@ impl Protonolysis {
                     });
                     let splitter = &mut self.peak.splitters[i];
                     row.col(|ui| {
+                        ui.style_mut().spacing.slider_width = 80.;
                         ui.add(Slider::new(&mut splitter.n, 1..=10));
                     });
                     row.col(|ui| {
