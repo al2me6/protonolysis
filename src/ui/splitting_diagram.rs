@@ -4,12 +4,11 @@ use eframe::epaint::Color32;
 use crate::peak::{Peaklet, SplittingRelationship};
 
 const STAGE_ORIGIN: f64 = 0.;
-const STAGE_HEIGHT: f64 = 50.;
-const MAX_PEAKLET_HEIGHT: f64 = 35.;
+const MAX_PEAKLET_HEIGHT: f64 = 0.7;
 
 #[allow(clippy::cast_precision_loss)]
 fn base_height_of(stage: usize) -> f64 {
-    STAGE_ORIGIN - stage as f64 * STAGE_HEIGHT
+    STAGE_ORIGIN - stage as f64
 }
 
 fn tip_height_of(peaklet: &Peaklet, stage: usize, max_integration: f64) -> f64 {
@@ -29,7 +28,9 @@ pub(super) fn draw_peaklet_marker(
             [peaklet.δ, tip_height_of(peaklet, stage, max_integration)],
         ])
         .color(if enabled {
-            Color32::LIGHT_BLUE
+            let mut color = Color32::LIGHT_BLUE;
+            color[3] = 127;
+            color
         } else {
             Color32::DARK_GRAY
         })

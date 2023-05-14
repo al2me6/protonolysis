@@ -123,88 +123,7 @@ impl Protonolysis {
 
         ui.separator();
 
-        ui.label("Configure coupled protons:");
-        ui.horizontal(|ui| {
-            if ui.button("Add").clicked() {
-                self.peak.splitters.push(Splitter::default());
-                self.try_increment_view_stage();
-            }
-            if ui.button("Sort by J").clicked() {
-                self.peak.canonicalize();
-            }
-        });
-
-        let row_height = ui.text_style_height(&TextStyle::Body) + ui.spacing().item_spacing.y;
-        let table = TableBuilder::new(ui)
-            .striped(true)
-            .cell_layout(Layout::left_to_right(Align::Center))
-            .column(Column::auto_with_initial_suggestion(20.))
-            .columns(Column::auto(), 3)
-            .column(Column::remainder())
-            .header(row_height, |mut header| {
-                header.col(|_ui| {});
-                header.col(|ui| {
-                    ui.strong("Count");
-                });
-                header.col(|ui| {
-                    ui.strong("J (Hz)");
-                });
-                header.col(|ui| {
-                    ui.strong("Pattern");
-                });
-                header.col(|ui| {
-                    ui.strong("Action");
-                });
-            });
-        table.body(|mut body| {
-            let mut i = 0;
-            while i < self.peak.splitters.len() {
-                let row = |mut row: egui_extras::TableRow| {
-                    row.col(|ui| {
-                        ui.label((i + 1).to_string());
-                    });
-                    let splitter = &mut self.peak.splitters[i];
-                    row.col(|ui| {
-                        ui.style_mut().spacing.slider_width = 80.;
-                        ui.add(Slider::new(&mut splitter.n, 1..=10));
-                    });
-                    row.col(|ui| {
-                        ui.add(
-                            Slider::new(&mut splitter.j, 0.0..=20.0)
-                                .fixed_decimals(1)
-                                .smart_aim(false),
-                        );
-                    });
-                    row.col(|ui| {
-                        ui.label(splitter.name_pattern());
-                    });
-                    row.col(|ui| {
-                        let mut button = |enabled, text, hover| {
-                            ui.add_enabled(enabled, Button::new(text))
-                                .on_hover_text(hover)
-                                .clicked()
-                        };
-                        if button(i > 0, "↑", "Move up") {
-                            self.peak.splitters.swap(i - 1, i);
-                        }
-                        if button(i < self.peak.splitters.len() - 1, "↓", "Move down") {
-                            self.peak.splitters.swap(i, i + 1);
-                        }
-                        // U+2717 BALLOT X.
-                        if button(true, "\u{2717}", "Delete") {
-                            self.peak.splitters.remove(i);
-                            self.clamp_view_stage();
-                        }
-                    });
-                };
-                body.row(row_height, row);
-                i += 1;
-            }
-        });
-
-        ui.separator();
-
-        Grid::new("controls_sliders_view")
+        Grid::new("controls_sliders_peak")
             .num_columns(2)
             .show(ui, |ui| {
                 ui.label("Peak FWHM:")
@@ -217,23 +136,114 @@ impl Protonolysis {
                 );
                 ui.end_row();
 
-                ui.label("Apply splitting up to:");
+                ui.label("Configure coupled protons:");
+                ui.horizontal(|ui| {
+                    if ui
+                        .add_enabled(self.peak.splitters.len() < 5, Button::new("Add"))
+                        .clicked()
+                    {
+                        self.peak.splitters.push(Splitter::default());
+                        self.try_increment_view_stage();
+                    }
+                    if ui.button("Sort by J").clicked() {
+                        self.peak.canonicalize();
+                    }
+                });
+                ui.end_row();
+            });
+
+        let row_height = ui.text_style_height(&TextStyle::Body) + ui.spacing().item_spacing.y;
+        ui.indent("controls_splitter_list", |ui| {
+            let table = TableBuilder::new(ui)
+                .striped(true)
+                .cell_layout(Layout::left_to_right(Align::Center))
+                .column(Column::auto_with_initial_suggestion(20.))
+                .columns(Column::auto(), 3)
+                .column(Column::remainder())
+                .header(row_height, |mut header| {
+                    header.col(|_ui| {});
+                    header.col(|ui| {
+                        ui.strong("Count");
+                    });
+                    header.col(|ui| {
+                        ui.strong("J (Hz)");
+                    });
+                    header.col(|ui| {
+                        ui.strong("Pattern");
+                    });
+                    header.col(|ui| {
+                        ui.strong("Action");
+                    });
+                });
+            table.body(|mut body| {
+                let mut i = 0;
+                while i < self.peak.splitters.len() {
+                    let row = |mut row: egui_extras::TableRow| {
+                        row.col(|ui| {
+                            ui.label((i + 1).to_string());
+                        });
+                        let splitter = &mut self.peak.splitters[i];
+                        row.col(|ui| {
+                            ui.style_mut().spacing.slider_width = 80.;
+                            ui.add(Slider::new(&mut splitter.n, 1..=10));
+                        });
+                        row.col(|ui| {
+                            ui.add(
+                                Slider::new(&mut splitter.j, 0.0..=20.0)
+                                    .fixed_decimals(1)
+                                    .smart_aim(false),
+                            );
+                        });
+                        row.col(|ui| {
+                            ui.label(splitter.name_pattern());
+                        });
+                        row.col(|ui| {
+                            let mut button = |enabled, text, hover| {
+                                ui.add_enabled(enabled, Button::new(text))
+                                    .on_hover_text(hover)
+                                    .clicked()
+                            };
+                            if button(i > 0, "↑", "Move up") {
+                                self.peak.splitters.swap(i - 1, i);
+                            }
+                            if button(i < self.peak.splitters.len() - 1, "↓", "Move down") {
+                                self.peak.splitters.swap(i, i + 1);
+                            }
+                            // U+2717 BALLOT X.
+                            if button(true, "\u{2717}", "Delete") {
+                                self.peak.splitters.remove(i);
+                                self.clamp_view_stage();
+                            }
+                        });
+                    };
+                    body.row(row_height, row);
+                    i += 1;
+                }
+            });
+        });
+
+        ui.separator();
+
+        Grid::new("controls_sliders_view")
+            .num_columns(2)
+            .show(ui, |ui| {
+                ui.label("Apply splitting up to level:");
                 ui.add(Slider::new(
                     &mut self.view_stage,
                     0..=self.peak.splitters.len(),
                 ));
                 ui.end_row();
 
-                ui.label("");
-                ui.checkbox(&mut self.show_integral, "Show peak integral");
+                ui.label("Show:");
+                ui.checkbox(&mut self.show_integral, "Peak integral");
                 ui.end_row();
 
                 ui.label("");
-                ui.checkbox(&mut self.show_splitting_diagram, "Show splitting diagram");
+                ui.checkbox(&mut self.show_splitting_diagram, "Splitting diagram");
                 ui.end_row();
 
                 ui.label("");
-                ui.checkbox(&mut self.show_peaklets, "Show individual contributions");
+                ui.checkbox(&mut self.show_peaklets, "Individual contributions");
                 ui.end_row();
             });
     }
@@ -334,7 +344,7 @@ impl Protonolysis {
                             Self::SAMPLES / 2,
                         ))
                         .width(2.)
-                        .color(Color32::GREEN),
+                        .color(Color32::LIGHT_GREEN),
                     );
 
                     let bounds = plot_ui.plot_bounds();
@@ -356,6 +366,7 @@ impl Protonolysis {
     fn splitting_diagram(&self, ui: &mut Ui) {
         let cascade = self.peak.build_multiplet_cascade();
 
+        #[allow(clippy::cast_precision_loss)]
         let plot = Plot::new("splitting_diagram")
             .show_axes([false; 2])
             .show_background(false)
@@ -368,7 +379,11 @@ impl Protonolysis {
             .allow_zoom(false)
             .auto_bounds_x()
             .auto_bounds_y()
-            .set_margin_fraction(Vec2::splat(0.1));
+            .height(
+                ui.available_height()
+                    .min(100. * (self.peak.splitters.len() + 1) as f32),
+            )
+            .data_aspect(15.);
 
         plot.show(ui, |plot_ui| {
             splitting_diagram::draw_peaklet_marker(plot_ui, &cascade.base_peaklet(), 0, 1., true);
@@ -392,6 +407,7 @@ impl Protonolysis {
 impl eframe::App for Protonolysis {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         SidePanel::right("controls")
+            .min_width(ctx.available_rect().width() * 0.25)
             .resizable(false)
             .show(ctx, |ui| {
                 self.controls(ui);
