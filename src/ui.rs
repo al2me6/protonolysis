@@ -1,4 +1,5 @@
 mod plotting_utils;
+mod splitting_diagram;
 
 use eframe::egui::plot::{Line, Plot, PlotBounds, PlotPoints, PlotUi};
 use eframe::egui::{
@@ -15,6 +16,7 @@ pub struct Protonolysis {
     peak: Peak,
     view_stage: usize,
     show_integral: bool,
+    show_splitting_diagram: bool,
     show_peaklets: bool,
     linked_x_axis: (f64, f64),
 }
@@ -73,6 +75,7 @@ impl Protonolysis {
             },
             view_stage: 1,
             show_integral: true,
+            show_splitting_diagram: true,
             show_peaklets: false,
             linked_x_axis: (-Self::DEFAULT_X, Self::DEFAULT_X),
         }
@@ -226,6 +229,10 @@ impl Protonolysis {
                 ui.end_row();
 
                 ui.label("");
+                ui.checkbox(&mut self.show_splitting_diagram, "Show splitting diagram");
+                ui.end_row();
+
+                ui.label("");
                 ui.checkbox(&mut self.show_peaklets, "Show individual contributions");
                 ui.end_row();
             });
@@ -345,13 +352,56 @@ impl Protonolysis {
             draw_integral_plot,
         );
     }
+
+    fn splitting_diagram(&self, ui: &mut Ui) {
+        let cascade = self.peak.build_multiplet_cascade();
+
+        let plot = Plot::new("splitting_diagram")
+            .show_axes([false; 2])
+            .show_background(false)
+            .show_x(false)
+            .show_y(false)
+            .allow_boxed_zoom(false)
+            .allow_double_click_reset(false)
+            .allow_drag(false)
+            .allow_scroll(false)
+            .allow_zoom(false)
+            .auto_bounds_x()
+            .auto_bounds_y()
+            .set_margin_fraction(Vec2::splat(0.1));
+
+        plot.show(ui, |plot_ui| {
+            splitting_diagram::draw_peaklet_marker(plot_ui, &cascade.base_peaklet(), 0, 1., true);
+            for i in 1..=cascade.child_stages_count() {
+                let enabled = i <= self.view_stage;
+                let max_integration = cascade.max_integration_of_stage(i);
+                for group in cascade.iter_nth_stage(i) {
+                    splitting_diagram::draw_group_children_and_connectors(
+                        plot_ui,
+                        &group,
+                        i,
+                        max_integration,
+                        enabled,
+                    );
+                }
+            }
+        });
+    }
 }
 
 impl eframe::App for Protonolysis {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         SidePanel::right("controls")
             .resizable(false)
-            .show(ctx, |ui| self.controls(ui));
+            .show(ctx, |ui| {
+                self.controls(ui);
+                ui.separator();
+                if !self.show_splitting_diagram {
+                    return;
+                }
+                ui.label("Splitting diagram:");
+                self.splitting_diagram(ui);
+            });
 
         CentralPanel::default().show(ctx, |ui| {
             self.peak_viewer(ui);

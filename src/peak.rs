@@ -109,6 +109,13 @@ impl<'a> SplittingRelationship<'a> {
 
 impl MultipletCascade {
     #[must_use]
+    pub fn base_peaklet(&self) -> Peaklet {
+        let base_stage = &self.stages[0];
+        assert_eq!(base_stage.len(), 1);
+        base_stage[0]
+    }
+
+    #[must_use]
     pub fn child_stages_count(&self) -> usize {
         self.stages.len() - 1
     }
@@ -150,6 +157,14 @@ impl MultipletCascade {
                 parent: &self.stages[n - 1][i],
                 children: group,
             })
+    }
+
+    pub fn max_integration_of_stage(&self, n: usize) -> f64 {
+        self.stages[n]
+            .iter()
+            .map(|peaklet| peaklet.integration)
+            .max_by(f64::total_cmp)
+            .unwrap()
     }
 }
 
