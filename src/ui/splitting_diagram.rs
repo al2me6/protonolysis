@@ -11,7 +11,7 @@ const PEAKLET_THICKNESS: f32 = 3.;
 const CONNECTING_LINE_THICKNESS: f32 = 1.;
 
 const PEAKLET_COLOR: Color32 = Color32::LIGHT_BLUE;
-const DISABLED_PEAKLET_COLOR: Color32 = Color32::DARK_BLUE;
+const DISABLED_PEAKLET_COLOR: Color32 = Color32::DARK_GRAY;
 const CONNECTOR_COLOR: Color32 = Color32::GRAY;
 const DISABLED_CONNECTOR_COLOR: Color32 = Color32::DARK_GRAY;
 
@@ -59,16 +59,25 @@ pub(super) fn draw_group_children_and_connectors(
     // let max_integration = group.
     for child in group.children {
         draw_peaklet_marker(plot_ui, child, stage, max_integration, enabled);
-        let child_top = [child.δ, tip_height_of(child, stage, max_integration)];
-        plot_ui.line(
-            Line::new(vec![child_top, parent_base])
-                .color(if enabled {
-                    CONNECTOR_COLOR
-                } else {
-                    DISABLED_CONNECTOR_COLOR
-                })
-                .style(CONNECTOR_STYLE)
-                .width(CONNECTING_LINE_THICKNESS),
-        );
+        let child_tip = [child.δ, tip_height_of(child, stage, max_integration)];
+        let mut draw_line = |from, to| {
+            plot_ui.line(
+                Line::new(vec![from, to])
+                    .color(if enabled {
+                        CONNECTOR_COLOR
+                    } else {
+                        DISABLED_CONNECTOR_COLOR
+                    })
+                    .style(CONNECTOR_STYLE)
+                    .width(CONNECTING_LINE_THICKNESS),
+            );
+        };
+        if child.integration / max_integration > 0.95 {
+            draw_line(child_tip, parent_base);
+        } else {
+            let corner = [child.δ, base_height_of(stage) + MAX_PEAKLET_HEIGHT];
+            draw_line(child_tip, corner);
+            draw_line(corner, parent_base);
+        }
     }
 }
