@@ -1,7 +1,9 @@
+mod plotting_utils;
+
 use eframe::egui::plot::{Line, Plot, PlotBounds, PlotPoints, PlotUi};
 use eframe::egui::{
-    Align, Button, CentralPanel, Context, CursorIcon, DragValue, FontData, FontDefinitions,
-    FontTweak, Grid, Layout, SidePanel, Slider, TextStyle, Ui,
+    Align, Button, CentralPanel, Context, DragValue, FontData, FontDefinitions, FontTweak, Grid,
+    Layout, SidePanel, Slider, TextStyle, Ui,
 };
 use eframe::epaint::{Color32, FontFamily, Rect, Vec2};
 use egui_extras::{Column, TableBuilder};
@@ -25,44 +27,6 @@ macro_rules! load_font {
             $name
         )))
     };
-}
-
-fn peak_viewer_plot(plot_ui: &mut PlotUi, line: Line, x_axis: &mut (f64, f64)) {
-    plot_ui.line(line);
-
-    if !plot_ui.plot_hovered() {
-        return;
-    }
-
-    // FIXME: touch support.
-
-    // Custom pan:
-    let drag = plot_ui
-        .ctx()
-        .input(|i| i.pointer.primary_down().then(|| i.pointer.delta()));
-    if let Some(drag) = drag {
-        plot_ui.ctx().set_cursor_icon(CursorIcon::ResizeHorizontal);
-        plot_ui.translate_bounds(Vec2 { x: -drag.x, y: 0. });
-    }
-
-    // Custom zoom:
-    let bounds = plot_ui.plot_bounds();
-    let (mut bounds_min, mut bounds_max) = (bounds.min(), bounds.max());
-    // y: zoom:
-    let scroll_y = plot_ui.ctx().input(|i| f64::from(i.scroll_delta.y));
-    if scroll_y != 0. {
-        let zoom_factor = (scroll_y / 200.).exp();
-        bounds_min[1] /= zoom_factor;
-        bounds_max[1] /= zoom_factor;
-    }
-    // x zoom (ctrl+scroll):
-    // This seems to eat the raw scroll delta.
-    let ctrl_scroll_factor = plot_ui.ctx().input(|i| f64::from(i.zoom_delta()));
-    bounds_min[0] /= ctrl_scroll_factor;
-    bounds_max[0] /= ctrl_scroll_factor;
-    // Apply:
-    *x_axis = (bounds_min[0], bounds_max[0]);
-    plot_ui.set_plot_bounds(PlotBounds::from_min_max(bounds_min, bounds_max));
 }
 
 impl Protonolysis {
@@ -289,9 +253,10 @@ impl Protonolysis {
             .allow_zoom(false)
             .height(plot_height);
         peak_plot.show(ui, |plot_ui| {
+            plotting_utils::peak_viewer_interactions(plot_ui, &mut self.linked_x_axis);
+
             let waveform_clone = waveform.clone();
-            peak_viewer_plot(
-                plot_ui,
+            plot_ui.line(
                 Line::new(PlotPoints::from_explicit_callback(
                     move |x| waveform_clone.evaluate(x),
                     ..,
@@ -299,7 +264,6 @@ impl Protonolysis {
                 ))
                 .width(2.)
                 .fill(0.),
-                &mut self.linked_x_axis,
             );
 
             if !self.show_peaklets {
