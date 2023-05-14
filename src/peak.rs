@@ -37,6 +37,11 @@ pub struct Peaklet {
     pub integration: f64,
 }
 
+pub struct SplittingRelationship<'a> {
+    pub parent: &'a Peaklet,
+    pub children: &'a [Peaklet],
+}
+
 #[derive(Clone, PartialEq, Debug)]
 /// Splitting patterns resulting from the cumulative contributions of all preceding splitters,
 /// starting from the parent singlet.
@@ -44,6 +49,9 @@ pub struct Peaklet {
 /// _E.g._, s -> q -> qd -> qdd.
 pub struct MultipletCascade {
     /// Splitting patterns resulting from contributions of the first n splitters only.
+    /// Note that the ordering of peaklets within each stage is meaningful: children of the
+    /// same peaklet appear consecutively, and these groups are in the same order as the parent
+    /// stage.
     stages: Vec<Vec<Peaklet>>,
     /// Full width at half maximum of a single peaklet, in Hz.
     fwhm: f64,
@@ -92,14 +100,17 @@ impl Peaklet {
     };
 }
 
+impl<'a> SplittingRelationship<'a> {
+    #[must_use]
+    pub fn children_count(&self) -> usize {
+        self.children.len()
+    }
+}
+
 impl MultipletCascade {
     #[must_use]
-    pub fn len(&self) -> usize {
-        self.stages.len()
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &[Peaklet]> {
-        self.stages.iter().map(AsRef::as_ref)
+    pub fn child_stages_count(&self) -> usize {
+        self.stages.len() - 1
     }
 
     #[must_use]
@@ -118,7 +129,27 @@ impl MultipletCascade {
 
     #[must_use]
     pub fn final_waveform(&self, field_strength: f64) -> GaussianSum {
-        self.nth_waveform(self.len() - 1, field_strength)
+        self.nth_waveform(self.stages.len() - 1, field_strength)
+    }
+
+    /// # Panics:
+    /// This iterator can only be called on child stages (that is, not the base peaklet).
+    pub fn iter_nth_stage(&self, n: usize) -> impl Iterator<Item = SplittingRelationship<'_>> {
+        let parent_count = self.stages[n - 1].len();
+        let children_count = self.stages[n].len();
+        assert_eq!(
+            children_count % parent_count,
+            0,
+            "the number of child peaklets should be an integer multiple of the number of parents"
+        );
+        let group_size = children_count / parent_count;
+        self.stages[n]
+            .chunks_exact(group_size)
+            .enumerate()
+            .map(move |(i, group)| SplittingRelationship {
+                parent: &self.stages[n - 1][i],
+                children: group,
+            })
     }
 }
 
