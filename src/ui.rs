@@ -62,7 +62,7 @@ impl Protonolysis {
 
         let mut style = (*cc.egui_ctx.style()).clone();
         style.spacing.item_spacing.y = 5.;
-        style.spacing.slider_width = 125.;
+        style.spacing.slider_width = 120.;
         cc.egui_ctx.set_style(style);
 
         Self {
@@ -103,7 +103,7 @@ impl Protonolysis {
                 ui.add(
                     Slider::new(&mut self.field_strength, 40.0..=1200.0)
                         .fixed_decimals(0)
-                        .step_by(10.)
+                        .step_by(20.)
                         .suffix(" MHz"),
                 );
                 ui.end_row();
@@ -166,7 +166,11 @@ impl Protonolysis {
                         ui.add(Slider::new(&mut splitter.n, 1..=10));
                     });
                     row.col(|ui| {
-                        ui.add(Slider::new(&mut splitter.j, 0.0..=20.0).fixed_decimals(1));
+                        ui.add(
+                            Slider::new(&mut splitter.j, 0.0..=20.0)
+                                .fixed_decimals(1)
+                                .smart_aim(false),
+                        );
                     });
                     row.col(|ui| {
                         ui.label(splitter.name_pattern());
@@ -203,8 +207,9 @@ impl Protonolysis {
                 ui.label("Peak FWHM:")
                     .on_hover_text("Full width at half maximum (i.e., broadness) of peaks.");
                 ui.add(
-                    Slider::new(&mut self.peak.fwhm, 0.1..=4.0)
+                    Slider::new(&mut self.peak.fwhm, 0.5..=4.0)
                         .fixed_decimals(1)
+                        .smart_aim(false)
                         .suffix(" Hz"),
                 );
                 ui.end_row();
