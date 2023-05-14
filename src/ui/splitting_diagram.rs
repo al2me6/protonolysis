@@ -60,24 +60,16 @@ pub(super) fn draw_group_children_and_connectors(
     for child in group.children {
         draw_peaklet_marker(plot_ui, child, stage, max_integration, enabled);
         let child_tip = [child.δ, tip_height_of(child, stage, max_integration)];
-        let mut draw_line = |from, to| {
-            plot_ui.line(
-                Line::new(vec![from, to])
-                    .color(if enabled {
-                        CONNECTOR_COLOR
-                    } else {
-                        DISABLED_CONNECTOR_COLOR
-                    })
-                    .style(CONNECTOR_STYLE)
-                    .width(CONNECTING_LINE_THICKNESS),
-            );
-        };
-        if child.integration / max_integration > 0.95 {
-            draw_line(child_tip, parent_base);
-        } else {
-            let corner = [child.δ, base_height_of(stage) + MAX_PEAKLET_HEIGHT];
-            draw_line(child_tip, corner);
-            draw_line(corner, parent_base);
-        }
+        let corner = [child.δ, base_height_of(stage) + MAX_PEAKLET_HEIGHT];
+        plot_ui.line(
+            Line::new(vec![child_tip, corner, parent_base])
+                .color(if enabled {
+                    CONNECTOR_COLOR
+                } else {
+                    DISABLED_CONNECTOR_COLOR
+                })
+                .style(CONNECTOR_STYLE)
+                .width(CONNECTING_LINE_THICKNESS),
+        );
     }
 }
