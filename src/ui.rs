@@ -111,7 +111,8 @@ impl Protonolysis {
                 );
                 ui.end_row();
 
-                ui.label("Field strength:");
+                ui.label("Field strength:")
+                    .on_hover_text("Strength of magnetic field of instrument");
                 ui.add_enabled(
                     false,
                     DragValue::new(&mut peak::mhz_to_tesla(self.field_strength))
@@ -127,7 +128,7 @@ impl Protonolysis {
             .num_columns(2)
             .show(ui, |ui| {
                 ui.label("Peak FWHM:")
-                    .on_hover_text("Full width at half maximum (i.e., broadness) of peaks.");
+                    .on_hover_text("Full width at half maximum (i.e., broadness) of peaks");
                 ui.add(
                     Slider::new(&mut self.peak.fwhm, 0.5..=4.0)
                         .fixed_decimals(1)
@@ -140,12 +141,17 @@ impl Protonolysis {
                 ui.horizontal(|ui| {
                     if ui
                         .add_enabled(self.peak.splitters.len() < 5, Button::new("Add"))
+                        .on_hover_text("Add new coupled proton type")
                         .clicked()
                     {
                         self.peak.splitters.push(Splitter::default());
                         self.try_increment_view_stage();
                     }
-                    if ui.button("Sort by J").clicked() {
+                    if ui
+                        .button("Sort by J")
+                        .on_hover_text("Sort by splitting constant in ascending order")
+                        .clicked()
+                    {
                         self.peak.canonicalize();
                     }
                 });
@@ -227,7 +233,9 @@ impl Protonolysis {
         Grid::new("controls_sliders_view")
             .num_columns(2)
             .show(ui, |ui| {
-                ui.label("Apply splitting up to level:");
+                ui.label("Apply splitting up to level:").on_hover_text(
+                    "Draw the peak as if only the first n proton types were present",
+                );
                 ui.add(Slider::new(
                     &mut self.view_stage,
                     0..=self.peak.splitters.len(),
@@ -243,7 +251,10 @@ impl Protonolysis {
                 ui.end_row();
 
                 ui.label("");
-                ui.checkbox(&mut self.show_peaklets, "Individual contributions");
+                ui.checkbox(&mut self.show_peaklets, "Individual contributions")
+                    .on_hover_text(
+                        "Draw the individual peaks making up the multiplet to elucidate overlap",
+                    );
                 ui.end_row();
             });
     }
