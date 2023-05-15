@@ -6,7 +6,7 @@
     clippy::too_many_lines
 )]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-#![feature(drain_filter)]
+#![feature(drain_filter, lazy_cell)]
 
 pub mod numerics;
 pub mod peak;

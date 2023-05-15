@@ -3,16 +3,27 @@ mod splitting_diagram;
 
 use eframe::egui::plot::{Line, Plot, PlotBounds, PlotPoints, PlotUi};
 use eframe::egui::{
-    Align, Button, CentralPanel, Context, DragValue, FontData, FontDefinitions, FontTweak, Grid,
-    Layout, SidePanel, Slider, TextStyle, Ui,
+    Align, Button, CentralPanel, ComboBox, Context, DragValue, FontData, FontDefinitions,
+    FontTweak, Grid, Layout, SidePanel, Slider, TextStyle, Ui,
 };
 use eframe::epaint::{Color32, FontFamily, Rect, Vec2};
 use egui_extras::{Column, TableBuilder};
+use maplit::hashmap;
+use std::collections::HashMap;
+use std::sync::LazyLock;
 
 use crate::peak::{self, Peak, Splitter};
 
+pub static PEAK_PRESETS: LazyLock<HashMap<&str, Vec<Splitter>>> = LazyLock::new(|| {
+    hashmap! {
+        "Et₂O (CH₂)" => vec![Splitter { j: 7., n: 3 }],
+        "Et₂O (CH₃)" => vec![Splitter { j: 7., n: 2 }],
+    }
+});
+
 pub struct Protonolysis {
     field_strength: f64,
+    selected_preset: &'static str,
     peak: Peak,
     view_stage: usize,
     show_integral: bool,
@@ -29,6 +40,29 @@ macro_rules! load_font {
             $name
         )))
     };
+}
+
+impl Protonolysis {
+    fn try_increment_view_stage(&mut self) -> bool {
+        if self.view_stage < self.peak.splitters.len() {
+            self.view_stage += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn clamp_view_stage(&mut self) {
+        self.view_stage = self.view_stage.min(self.peak.splitters.len());
+    }
+
+    fn is_preset_modified(&self) -> bool {
+        self.peak.splitters != PEAK_PRESETS[self.selected_preset]
+    }
+    fn apply_preset(&mut self) {
+        self.peak.splitters = PEAK_PRESETS[self.selected_preset].clone();
+        self.clamp_view_stage();
+    }
 }
 
 impl Protonolysis {
@@ -65,13 +99,16 @@ impl Protonolysis {
         let mut style = (*cc.egui_ctx.style()).clone();
         style.spacing.item_spacing.y = 5.;
         style.spacing.slider_width = 120.;
+        style.spacing.combo_width = 120.;
         cc.egui_ctx.set_style(style);
 
+        let (&selected_preset, splitters) = PEAK_PRESETS.iter().next().unwrap();
         Self {
             field_strength: 600.,
+            selected_preset,
             peak: Peak {
-                splitters: vec![Splitter { n: 2, j: 6.0 }],
-                fwhm: 1.,
+                splitters: splitters.clone(),
+                fwhm: 1.0,
             },
             view_stage: 1,
             show_integral: true,
@@ -79,19 +116,6 @@ impl Protonolysis {
             show_peaklets: false,
             linked_x_axis: (-Self::DEFAULT_X, Self::DEFAULT_X),
         }
-    }
-
-    fn try_increment_view_stage(&mut self) -> bool {
-        if self.view_stage < self.peak.splitters.len() {
-            self.view_stage += 1;
-            true
-        } else {
-            false
-        }
-    }
-
-    fn clamp_view_stage(&mut self) {
-        self.view_stage = self.view_stage.min(self.peak.splitters.len());
     }
 
     fn controls(&mut self, ui: &mut Ui) {
@@ -138,28 +162,49 @@ impl Protonolysis {
                 ui.end_row();
 
                 ui.label("Configure coupled protons:");
-                ui.horizontal(|ui| {
-                    if ui
-                        .add_enabled(self.peak.splitters.len() < 5, Button::new("Add"))
-                        .on_hover_text("Add new coupled proton type")
-                        .clicked()
-                    {
-                        self.peak.splitters.push(Splitter::default());
-                        self.try_increment_view_stage();
-                    }
-                    if ui
-                        .button("Sort by J")
-                        .on_hover_text("Sort by splitting constant in ascending order")
-                        .clicked()
-                    {
-                        self.peak.canonicalize();
-                    }
-                });
                 ui.end_row();
             });
 
-        let row_height = ui.text_style_height(&TextStyle::Body) + ui.spacing().item_spacing.y;
-        ui.indent("controls_splitter_list", |ui| {
+        ui.indent("controls_splitter", |ui| {
+            ui.horizontal(|ui| {
+                ui.label("Apply preset:");
+                ComboBox::from_id_source("presets_selector")
+                    .selected_text(self.selected_preset)
+                    .show_ui(ui, |ui| {
+                        for &preset in PEAK_PRESETS.keys() {
+                            ui.selectable_value(&mut self.selected_preset, preset, preset);
+                        }
+                    });
+
+                let modified = self.is_preset_modified();
+                let apply_button = &ui.add_enabled(
+                    modified,
+                    Button::new(if modified { "Apply" } else { "Applied" }),
+                );
+                if apply_button.clicked() {
+                    self.apply_preset();
+                }
+            });
+
+            ui.horizontal(|ui| {
+                if ui
+                    .add_enabled(self.peak.splitters.len() < 5, Button::new("Add"))
+                    .on_hover_text("Add new coupled proton type")
+                    .clicked()
+                {
+                    self.peak.splitters.push(Splitter::default());
+                    self.try_increment_view_stage();
+                }
+                if ui
+                    .button("Sort by J")
+                    .on_hover_text("Sort by splitting constant in ascending order")
+                    .clicked()
+                {
+                    self.peak.canonicalize();
+                }
+            });
+
+            let row_height = ui.text_style_height(&TextStyle::Body) + ui.spacing().item_spacing.y;
             let table = TableBuilder::new(ui)
                 .striped(true)
                 .cell_layout(Layout::left_to_right(Align::Center))
