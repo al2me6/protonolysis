@@ -142,7 +142,10 @@ impl MultipletCascade {
     /// # Panics:
     /// This iterator can only be called on child stages (that is, not the base peaklet).
     pub fn iter_nth_stage(&self, n: usize) -> impl Iterator<Item = SplittingRelationship<'_>> {
-        let parent_count = self.stages[n - 1].len();
+        let parent_count = self.stages[n
+            .checked_sub(1)
+            .expect("should not be called on base stage")]
+        .len();
         let children_count = self.stages[n].len();
         assert_eq!(
             children_count % parent_count,
