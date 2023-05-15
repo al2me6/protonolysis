@@ -1,7 +1,9 @@
 use std::borrow::Cow;
 use std::collections::VecDeque;
 
-use crate::numerics::{self, gaussian::Gaussian, gaussian_sum::GaussianSum};
+use crate::numerics;
+use crate::numerics::gaussian::Gaussian;
+use crate::numerics::gaussian_sum::GaussianSum;
 
 #[must_use]
 #[allow(clippy::doc_markdown)]

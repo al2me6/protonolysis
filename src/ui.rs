@@ -1,6 +1,9 @@
 mod plotting_utils;
 mod splitting_diagram;
 
+use std::collections::HashMap;
+use std::sync::LazyLock;
+
 use eframe::egui::plot::{Line, Plot, PlotBounds, PlotPoints, PlotUi};
 use eframe::egui::{
     Align, Button, CentralPanel, ComboBox, Context, DragValue, FontData, FontDefinitions,
@@ -9,8 +12,6 @@ use eframe::egui::{
 use eframe::epaint::{Color32, FontFamily, Rect, Vec2};
 use egui_extras::{Column, TableBuilder};
 use maplit::hashmap;
-use std::collections::HashMap;
-use std::sync::LazyLock;
 
 use crate::peak::{self, Peak, Splitter};
 
@@ -59,6 +60,7 @@ impl Protonolysis {
     fn is_preset_modified(&self) -> bool {
         self.peak.splitters != PEAK_PRESETS[self.selected_preset]
     }
+
     fn apply_preset(&mut self) {
         self.peak.splitters = PEAK_PRESETS[self.selected_preset].clone();
         self.clamp_view_stage();
