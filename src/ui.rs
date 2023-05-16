@@ -1,3 +1,4 @@
+mod animation;
 mod plotting_utils;
 mod splitting_diagram;
 

@@ -1,3 +1,5 @@
+use std::f64::consts::TAU;
+
 pub mod error_function;
 pub mod gaussian;
 pub mod gaussian_sum;
@@ -17,6 +19,11 @@ pub fn normalized_pascals_triangle(n: u32) -> impl Iterator<Item = f64> {
     // Sum of (0-indexed) n-th row is 2^n.
     let row_sum = f64::from(1 << n);
     pascals_triangle(n).map(move |a| f64::from(a) / row_sum)
+}
+
+#[must_use]
+pub fn ease_transition(factor: f64) -> f64 {
+    0.5 * (1.0 - (TAU * factor).cos())
 }
 
 #[cfg(test)]
