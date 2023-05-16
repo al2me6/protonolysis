@@ -74,6 +74,18 @@ impl AnimationManager {
         self.anim_state = None;
     }
 
+    pub(super) fn is_animating(&self) -> bool {
+        self.anim_state.is_some()
+    }
+
+    pub(super) fn toggle_animation(&mut self) {
+        if self.is_animating() {
+            self.stop_animating();
+        } else {
+            self.animate();
+        }
+    }
+
     pub(super) fn tick(&mut self, ui: &mut Ui) -> bool {
         let Some(state) = &self.anim_state else {
             return false;
@@ -86,7 +98,8 @@ impl AnimationManager {
             AnimationDirection::Reverse => 1.0 - factor,
         });
         let reached_end = !(0.0..=1.0).contains(&new_normalized);
-        self.value = new_normalized.clamp(0.0, 1.0) * (self.range.end() - self.range.start()) + self.range.start();
+        self.value = new_normalized.clamp(0.0, 1.0) * (self.range.end() - self.range.start())
+            + self.range.start();
         if reached_end {
             self.anim_state = None;
         } else {

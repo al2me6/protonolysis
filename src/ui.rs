@@ -14,6 +14,7 @@ use eframe::epaint::{Color32, FontFamily, Rect, Vec2};
 use egui_extras::{Column, TableBuilder};
 use maplit::hashmap;
 
+use self::animation::AnimationManager;
 use crate::peak::{self, Peak, Splitter};
 
 pub static PEAK_PRESETS: LazyLock<HashMap<&str, Vec<Splitter>>> = LazyLock::new(|| {
@@ -27,7 +28,7 @@ pub struct Protonolysis {
     field_strength: f64,
     selected_preset: &'static str,
     peak: Peak,
-    view_stage: f64,
+    view_stage: AnimationManager,
     show_integral: bool,
     show_splitting_diagram: bool,
     show_peaklets: bool,
@@ -45,13 +46,27 @@ macro_rules! load_font {
 }
 
 impl Protonolysis {
-    fn try_increment_view_stage(&mut self) {
-        self.view_stage += 1.;
-        self.clamp_view_stage();
+    fn _update_view_stage_bounds(&mut self) {
+        self.view_stage
+            .set_range_clamping(0.0..=(self.peak.splitters.len() as f64));
     }
 
-    fn clamp_view_stage(&mut self) {
-        self.view_stage = self.view_stage.clamp(0.0, self.peak.splitters.len() as f64);
+    fn swap_splitter(&mut self, i: usize, j: usize) {
+        self.peak.splitters.swap(i, j);
+        self.view_stage.stop_animating();
+    }
+
+    fn push_splitter(&mut self, splitter: Splitter) {
+        self.peak.splitters.push(splitter);
+        self._update_view_stage_bounds();
+        self.view_stage
+            .set_value_clamping(self.view_stage.value() + 1.);
+    }
+
+    fn remove_splitter(&mut self, i: usize) {
+        self.peak.splitters.remove(i);
+        self._update_view_stage_bounds();
+        self.view_stage.stop_animating();
     }
 
     fn is_preset_modified(&self) -> bool {
@@ -60,11 +75,13 @@ impl Protonolysis {
 
     fn apply_preset(&mut self) {
         self.peak.splitters = PEAK_PRESETS[self.selected_preset].clone();
-        self.clamp_view_stage();
+        self._update_view_stage_bounds();
+        self.view_stage.set_value_clamping(f64::INFINITY);
     }
 }
 
 impl Protonolysis {
+    const ANIMATION_TIME: f64 = 6.0;
     const DEFAULT_X: f64 = 0.15;
     const DEFAULT_Y: f64 = 300.;
     const SAMPLES: usize = 5000;
@@ -109,7 +126,7 @@ impl Protonolysis {
                 splitters: splitters.clone(),
                 fwhm: 1.0,
             },
-            view_stage: splitters.len() as f64,
+            view_stage: AnimationManager::new(1., 0.0..=1.0, Self::ANIMATION_TIME),
             show_integral: true,
             show_splitting_diagram: true,
             show_peaklets: false,
@@ -191,8 +208,7 @@ impl Protonolysis {
                     .on_hover_text("Add new coupled proton type")
                     .clicked()
                 {
-                    self.peak.splitters.push(Splitter::default());
-                    self.try_increment_view_stage();
+                    self.push_splitter(Splitter::default());
                 }
                 if ui
                     .button("Sort by J")
@@ -254,15 +270,14 @@ impl Protonolysis {
                                     .clicked()
                             };
                             if button(i > 0, "↑", "Move up") {
-                                self.peak.splitters.swap(i - 1, i);
+                                self.swap_splitter(i - 1, i);
                             }
                             if button(i < self.peak.splitters.len() - 1, "↓", "Move down") {
-                                self.peak.splitters.swap(i, i + 1);
+                                self.swap_splitter(i, i + 1);
                             }
                             // U+2717 BALLOT X.
                             if button(true, "\u{2717}", "Delete") {
-                                self.peak.splitters.remove(i);
-                                self.clamp_view_stage();
+                                self.remove_splitter(i);
                             }
                         });
                     };
@@ -281,19 +296,32 @@ impl Protonolysis {
                     "Draw the peak as if only the first n proton types were present. A fractional \
                     value indicates partial application of the last splitting constant.",
                 );
-                ui.add(
-                    Slider::new(
-                        &mut self.view_stage,
-                        0.0..=(self.peak.splitters.len() as f64),
-                    )
-                    .custom_formatter(|x, _| {
-                        if approx::relative_eq!(x, x.round()) {
-                            format!("{x:.0}")
-                        } else {
-                            format!("{x:.2}")
-                        }
-                    }),
-                );
+                ui.horizontal(|ui| {
+                    self.view_stage.tick(ui);
+                    ui.add(
+                        Slider::from_get_set(self.view_stage.range(), |value| {
+                            if let Some(value) = value {
+                                self.view_stage.set_value_clamping(value);
+                            }
+                            self.view_stage.value()
+                        })
+                        .custom_formatter(|x, _| {
+                            if approx::relative_eq!(x, x.round()) {
+                                format!("{x:.0}")
+                            } else {
+                                format!("{x:.2}")
+                            }
+                        }),
+                    );
+                    let animate_text = if self.view_stage.is_animating() {
+                        "Stop"
+                    } else {
+                        "Animate"
+                    };
+                    if ui.button(animate_text).clicked() {
+                        self.view_stage.toggle_animation();
+                    }
+                });
                 ui.end_row();
 
                 ui.label("Show:");
@@ -324,7 +352,7 @@ impl Protonolysis {
 
         let waveform = self
             .peak
-            .nth_partial_peak(self.view_stage)
+            .nth_partial_peak(self.view_stage.value())
             .build_multiplet_cascade()
             .final_waveform(self.field_strength);
 
@@ -453,7 +481,7 @@ impl Protonolysis {
         plot.show(ui, |plot_ui| {
             splitting_diagram::draw_peaklet_marker(plot_ui, &cascade.base_peaklet(), 0, 1., true);
             for i in 1..=cascade.child_stages_count() {
-                let enabled = (i as f64) <= self.view_stage;
+                let enabled = (i as f64) - 0.5 <= self.view_stage.value();
                 let max_integration = cascade.max_integration_of_stage(i);
                 for group in cascade.iter_nth_stage(i) {
                     splitting_diagram::draw_group_children_and_connectors(
