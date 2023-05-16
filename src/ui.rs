@@ -26,7 +26,7 @@ pub struct Protonolysis {
     field_strength: f64,
     selected_preset: &'static str,
     peak: Peak,
-    view_stage: usize,
+    view_stage: f64,
     show_integral: bool,
     show_splitting_diagram: bool,
     show_peaklets: bool,
@@ -44,17 +44,13 @@ macro_rules! load_font {
 }
 
 impl Protonolysis {
-    fn try_increment_view_stage(&mut self) -> bool {
-        if self.view_stage < self.peak.splitters.len() {
-            self.view_stage += 1;
-            true
-        } else {
-            false
-        }
+    fn try_increment_view_stage(&mut self) {
+        self.view_stage += 1.;
+        self.clamp_view_stage();
     }
 
     fn clamp_view_stage(&mut self) {
-        self.view_stage = self.view_stage.min(self.peak.splitters.len());
+        self.view_stage = self.view_stage.clamp(0.0, self.peak.splitters.len() as f64);
     }
 
     fn is_preset_modified(&self) -> bool {
@@ -112,7 +108,7 @@ impl Protonolysis {
                 splitters: splitters.clone(),
                 fwhm: 1.0,
             },
-            view_stage: 1,
+            view_stage: splitters.len() as f64,
             show_integral: true,
             show_splitting_diagram: true,
             show_peaklets: false,
@@ -281,12 +277,22 @@ impl Protonolysis {
             .num_columns(2)
             .show(ui, |ui| {
                 ui.label("Apply splitting up to level:").on_hover_text(
-                    "Draw the peak as if only the first n proton types were present",
+                    "Draw the peak as if only the first n proton types were present. A fractional \
+                    value indicates partial application of the last splitting constant.",
                 );
-                ui.add(Slider::new(
-                    &mut self.view_stage,
-                    0..=self.peak.splitters.len(),
-                ));
+                ui.add(
+                    Slider::new(
+                        &mut self.view_stage,
+                        0.0..=(self.peak.splitters.len() as f64),
+                    )
+                    .custom_formatter(|x, _| {
+                        if approx::relative_eq!(x, x.round()) {
+                            format!("{x:.0}")
+                        } else {
+                            format!("{x:.2}")
+                        }
+                    }),
+                );
                 ui.end_row();
 
                 ui.label("Show:");
@@ -317,8 +323,9 @@ impl Protonolysis {
 
         let waveform = self
             .peak
+            .nth_partial_peak(self.view_stage)
             .build_multiplet_cascade()
-            .nth_waveform(self.view_stage, self.field_strength);
+            .final_waveform(self.field_strength);
 
         let peak_plot = Plot::new("peak_plot")
             .include_x(-Self::DEFAULT_X)
@@ -424,7 +431,6 @@ impl Protonolysis {
     fn splitting_diagram(&self, ui: &mut Ui) {
         let cascade = self.peak.build_multiplet_cascade();
 
-        #[allow(clippy::cast_precision_loss)]
         let plot = Plot::new("splitting_diagram")
             .show_axes([false; 2])
             .show_background(false)
@@ -446,7 +452,7 @@ impl Protonolysis {
         plot.show(ui, |plot_ui| {
             splitting_diagram::draw_peaklet_marker(plot_ui, &cascade.base_peaklet(), 0, 1., true);
             for i in 1..=cascade.child_stages_count() {
-                let enabled = i <= self.view_stage;
+                let enabled = (i as f64) <= self.view_stage;
                 let max_integration = cascade.max_integration_of_stage(i);
                 for group in cascade.iter_nth_stage(i) {
                     splitting_diagram::draw_group_children_and_connectors(

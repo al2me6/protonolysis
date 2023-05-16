@@ -197,6 +197,20 @@ impl Peak {
     }
 
     #[must_use]
+    pub fn nth_partial_peak(&self, n: f64) -> Self {
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let (n, partial) = (n.floor() as usize, n.fract());
+        let mut clone = self.clone();
+        let partial_is_significant = approx::relative_ne!(0.0, partial);
+        let len = if partial_is_significant { n + 1 } else { n };
+        clone.splitters.truncate(len);
+        if partial_is_significant {
+            clone.splitters.last_mut().unwrap().j *= partial;
+        }
+        clone
+    }
+
+    #[must_use]
     pub fn build_multiplet_cascade(&self) -> MultipletCascade {
         let mut cascade = MultipletCascade {
             stages: itertools::repeat_n(vec![], self.splitters.len() + 1).collect(),

@@ -1,5 +1,6 @@
 #![warn(clippy::pedantic)]
 #![allow(
+    clippy::cast_precision_loss,
     clippy::len_without_is_empty,
     clippy::missing_panics_doc,
     clippy::module_name_repetitions,
