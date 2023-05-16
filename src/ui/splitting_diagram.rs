@@ -6,7 +6,6 @@ use crate::peak::{Peaklet, SplittingRelationship};
 const STAGE_ORIGIN: f64 = 0.;
 const MAX_PEAKLET_HEIGHT: f64 = 0.7;
 
-#[allow(clippy::cast_precision_loss)]
 fn base_height_of(stage: usize) -> f64 {
     STAGE_ORIGIN - stage as f64
 }
