@@ -1,7 +1,6 @@
 use std::ops::{Deref, RangeInclusive};
 
 use eframe::egui::Ui;
-use instant::Instant;
 
 use crate::numerics;
 
@@ -12,18 +11,12 @@ enum AnimationDirection {
 }
 
 #[derive(Clone, Debug)]
-struct AnimationState {
-    initial_factor: f64,
-    initial_t: Instant,
-}
-
-#[derive(Clone, Debug)]
 pub(super) struct CyclicallyAnimatedF64 {
     value: f64,
     range: (f64, f64),
     duration: f64,
     direction: AnimationDirection,
-    anim_state: Option<AnimationState>,
+    anim_factor: Option<f64>,
 }
 
 impl AnimationDirection {
@@ -50,7 +43,7 @@ impl CyclicallyAnimatedF64 {
             range: range.into_inner(),
             duration,
             direction: AnimationDirection::Forward,
-            anim_state: None,
+            anim_factor: None,
         };
         ret.set_value_clamping(value);
         ret
@@ -74,27 +67,20 @@ impl CyclicallyAnimatedF64 {
         self.set_value_inner(self.value);
     }
 
-    fn new_animation_state(&mut self) {
-        self.anim_state = Some(AnimationState {
-            initial_factor: numerics::ease_transition_inverse(
-                (self.value - self.range.0) / (self.range.1 - self.range.0),
-            ),
-            initial_t: Instant::now(),
-        });
-    }
-
     pub(super) fn start_animating(&mut self) {
-        if self.anim_state.is_none() {
-            self.new_animation_state();
+        if self.anim_factor.is_none() {
+            self.anim_factor = Some(numerics::ease_transition_inverse(
+                (self.value - self.range.0) / (self.range.1 - self.range.0),
+            ));
         }
     }
 
     pub(super) fn stop_animating(&mut self) {
-        self.anim_state = None;
+        self.anim_factor = None;
     }
 
     pub(super) fn is_animating(&self) -> bool {
-        self.anim_state.is_some()
+        self.anim_factor.is_some()
     }
 
     pub(super) fn toggle_animation(&mut self) {
@@ -106,23 +92,22 @@ impl CyclicallyAnimatedF64 {
     }
 
     pub(super) fn tick(&mut self, ui: &mut Ui) {
-        let Some(state) = &self.anim_state else {
+        let Some(factor) = &mut self.anim_factor else {
             return;
         };
 
-        let dt = state.initial_t.elapsed().as_secs_f64()
+        let dt = ui.ctx().input(|i| f64::from(i.stable_dt)).min(0.1)
             * match self.direction {
                 AnimationDirection::Forward => 1.0,
                 AnimationDirection::Reverse => -1.0,
             };
-        let factor = state.initial_factor + dt / self.duration;
+        *factor += dt / self.duration;
 
         let new_normalized = numerics::ease_transition(factor.clamp(0.0, 1.0));
         self.value = new_normalized * (self.range.1 - self.range.0) + self.range.0;
 
-        let reached_end = !(0.0..=1.0).contains(&factor);
+        let reached_end = !(0.0..=1.0).contains(factor);
         if reached_end {
-            self.new_animation_state();
             self.direction.flip();
         }
 

@@ -12,7 +12,6 @@ readme = "README.md"
 approx = "0.5.1"
 eframe = { version = "0.21.3", default-features = false, features = ["wgpu"] }
 egui_extras = "0.21.0"
-instant = { version = "0.1.12", features = ["wasm-bindgen"] }
 itertools = "0.10.5"
 maplit = "1.0.2"
 
