@@ -1,4 +1,4 @@
-use std::f64::consts::TAU;
+use std::f64::consts::PI;
 
 pub mod error_function;
 pub mod gaussian;
@@ -23,7 +23,12 @@ pub fn normalized_pascals_triangle(n: u32) -> impl Iterator<Item = f64> {
 
 #[must_use]
 pub fn ease_transition(factor: f64) -> f64 {
-    0.5 * (1.0 - (TAU * factor).cos())
+    0.5 * (1.0 - (PI * factor).cos())
+}
+
+#[must_use]
+pub fn ease_transition_inverse(value: f64) -> f64 {
+    (1.0 - 2.0 * value).acos() / PI
 }
 
 #[cfg(test)]

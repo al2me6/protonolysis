@@ -14,7 +14,7 @@ use eframe::epaint::{Color32, FontFamily, Rect, Vec2};
 use egui_extras::{Column, TableBuilder};
 use maplit::hashmap;
 
-use self::animation::AnimationManager;
+use self::animation::CyclicallyAnimatedF64;
 use crate::peak::{self, Peak, Splitter};
 
 pub static PEAK_PRESETS: LazyLock<HashMap<&str, Vec<Splitter>>> = LazyLock::new(|| {
@@ -28,7 +28,7 @@ pub struct Protonolysis {
     field_strength: f64,
     selected_preset: &'static str,
     peak: Peak,
-    view_stage: AnimationManager,
+    view_stage: CyclicallyAnimatedF64,
     show_integral: bool,
     show_splitting_diagram: bool,
     show_peaklets: bool,
@@ -59,8 +59,7 @@ impl Protonolysis {
     fn push_splitter(&mut self, splitter: Splitter) {
         self.peak.splitters.push(splitter);
         self._update_view_stage_bounds();
-        self.view_stage
-            .set_value_clamping(self.view_stage.value() + 1.);
+        self.view_stage.set_value_clamping(*self.view_stage + 1.);
     }
 
     fn remove_splitter(&mut self, i: usize) {
@@ -81,7 +80,7 @@ impl Protonolysis {
 }
 
 impl Protonolysis {
-    const ANIMATION_TIME: f64 = 6.0;
+    const ANIMATION_TIME: f64 = 4.0;
     const DEFAULT_X: f64 = 0.15;
     const DEFAULT_Y: f64 = 300.;
     const SAMPLES: usize = 5000;
@@ -126,7 +125,7 @@ impl Protonolysis {
                 splitters: splitters.clone(),
                 fwhm: 1.0,
             },
-            view_stage: AnimationManager::new(1., 0.0..=1.0, Self::ANIMATION_TIME),
+            view_stage: CyclicallyAnimatedF64::new(1., 0.0..=1.0, Self::ANIMATION_TIME),
             show_integral: true,
             show_splitting_diagram: true,
             show_peaklets: false,
@@ -303,10 +302,10 @@ impl Protonolysis {
                             if let Some(value) = value {
                                 self.view_stage.set_value_clamping(value);
                             }
-                            self.view_stage.value()
+                            *self.view_stage
                         })
                         .custom_formatter(|x, _| {
-                            if approx::relative_eq!(x, x.round()) {
+                            if approx::abs_diff_eq!(x, x.round(), epsilon = 8e-3) {
                                 format!("{x:.0}")
                             } else {
                                 format!("{x:.2}")
@@ -352,7 +351,7 @@ impl Protonolysis {
 
         let waveform = self
             .peak
-            .nth_partial_peak(self.view_stage.value())
+            .nth_partial_peak(*self.view_stage)
             .build_multiplet_cascade()
             .final_waveform(self.field_strength);
 
@@ -481,7 +480,7 @@ impl Protonolysis {
         plot.show(ui, |plot_ui| {
             splitting_diagram::draw_peaklet_marker(plot_ui, &cascade.base_peaklet(), 0, 1., true);
             for i in 1..=cascade.child_stages_count() {
-                let enabled = (i as f64) - 0.5 <= self.view_stage.value();
+                let enabled = (i as f64) - 0.5 <= *self.view_stage;
                 let max_integration = cascade.max_integration_of_stage(i);
                 for group in cascade.iter_nth_stage(i) {
                     splitting_diagram::draw_group_children_and_connectors(

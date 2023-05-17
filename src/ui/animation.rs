@@ -1,4 +1,4 @@
-use std::ops::RangeInclusive;
+use std::ops::{Deref, RangeInclusive};
 use std::time::Instant;
 
 use eframe::egui::Ui;
@@ -13,32 +13,47 @@ enum AnimationDirection {
 
 #[derive(Clone, Debug)]
 struct AnimationState {
-    direction: AnimationDirection,
+    initial_factor: f64,
     initial_t: Instant,
 }
 
 #[derive(Clone, Debug)]
-pub(super) struct AnimationManager {
+pub(super) struct CyclicallyAnimatedF64 {
     value: f64,
     range: RangeInclusive<f64>,
     duration: f64,
+    direction: AnimationDirection,
     anim_state: Option<AnimationState>,
 }
 
-impl AnimationManager {
+impl AnimationDirection {
+    fn flip(&mut self) {
+        *self = match self {
+            Self::Forward => Self::Reverse,
+            Self::Reverse => Self::Forward,
+        }
+    }
+}
+
+impl Deref for CyclicallyAnimatedF64 {
+    type Target = f64;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+impl CyclicallyAnimatedF64 {
     pub(super) fn new(value: f64, range: RangeInclusive<f64>, duration: f64) -> Self {
         let mut ret = Self {
             value,
             range,
             duration,
+            direction: AnimationDirection::Forward,
             anim_state: None,
         };
         ret.set_value_clamping(value);
         ret
-    }
-
-    pub(super) fn value(&self) -> f64 {
-        self.value
     }
 
     pub(super) fn range(&self) -> RangeInclusive<f64> {
@@ -59,15 +74,19 @@ impl AnimationManager {
         self.set_value_inner(self.value);
     }
 
-    pub(super) fn animate(&mut self) {
+    fn new_animation_state(&mut self) {
         self.anim_state = Some(AnimationState {
-            direction: if self.value < *self.range.end() {
-                AnimationDirection::Forward
-            } else {
-                AnimationDirection::Reverse
-            },
+            initial_factor: numerics::ease_transition_inverse(
+                (self.value - self.range.start()) / (self.range.end() - self.range.start()),
+            ),
             initial_t: Instant::now(),
         });
+    }
+
+    pub(super) fn start_animating(&mut self) {
+        if self.anim_state.is_none() {
+            self.new_animation_state();
+        }
     }
 
     pub(super) fn stop_animating(&mut self) {
@@ -82,29 +101,28 @@ impl AnimationManager {
         if self.is_animating() {
             self.stop_animating();
         } else {
-            self.animate();
+            self.start_animating();
         }
     }
 
-    pub(super) fn tick(&mut self, ui: &mut Ui) -> bool {
+    pub(super) fn tick(&mut self, ui: &mut Ui) {
         let Some(state) = &self.anim_state else {
-            return false;
+            return;
         };
 
-        let dt = state.initial_t.elapsed().as_secs_f64();
-        let factor = dt / self.duration;
-        let new_normalized = numerics::ease_transition(match state.direction {
-            AnimationDirection::Forward => factor,
-            AnimationDirection::Reverse => 1.0 - factor,
-        });
-        let reached_end = !(0.0..=1.0).contains(&new_normalized);
-        self.value = new_normalized.clamp(0.0, 1.0) * (self.range.end() - self.range.start())
-            + self.range.start();
+        let dt = state.initial_t.elapsed().as_secs_f64()
+            * match self.direction {
+                AnimationDirection::Forward => 1.0,
+                AnimationDirection::Reverse => -1.0,
+            };
+        let factor = dt / self.duration + state.initial_factor;
+        let new_normalized = numerics::ease_transition(factor.clamp(0.0, 1.0));
+        self.value = new_normalized * (self.range.end() - self.range.start()) + self.range.start();
+        let reached_end = !(0.0..=1.0).contains(&factor);
         if reached_end {
-            self.anim_state = None;
-        } else {
-            ui.ctx().request_repaint();
+            self.new_animation_state();
+            self.direction.flip();
         }
-        reached_end
+        ui.ctx().request_repaint();
     }
 }
