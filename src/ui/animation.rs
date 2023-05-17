@@ -20,7 +20,7 @@ struct AnimationState {
 #[derive(Clone, Debug)]
 pub(super) struct CyclicallyAnimatedF64 {
     value: f64,
-    range: RangeInclusive<f64>,
+    range: (f64, f64),
     duration: f64,
     direction: AnimationDirection,
     anim_state: Option<AnimationState>,
@@ -47,7 +47,7 @@ impl CyclicallyAnimatedF64 {
     pub(super) fn new(value: f64, range: RangeInclusive<f64>, duration: f64) -> Self {
         let mut ret = Self {
             value,
-            range,
+            range: range.into_inner(),
             duration,
             direction: AnimationDirection::Forward,
             anim_state: None,
@@ -57,11 +57,11 @@ impl CyclicallyAnimatedF64 {
     }
 
     pub(super) fn range(&self) -> RangeInclusive<f64> {
-        self.range.clone()
+        self.range.0..=self.range.1
     }
 
     fn set_value_inner(&mut self, value: f64) {
-        self.value = value.clamp(*self.range.start(), *self.range.end());
+        self.value = value.clamp(self.range.0, self.range.1);
     }
 
     pub(super) fn set_value_clamping(&mut self, value: f64) {
@@ -70,14 +70,14 @@ impl CyclicallyAnimatedF64 {
     }
 
     pub(super) fn set_range_clamping(&mut self, range: RangeInclusive<f64>) {
-        self.range = range;
+        self.range = range.into_inner();
         self.set_value_inner(self.value);
     }
 
     fn new_animation_state(&mut self) {
         self.anim_state = Some(AnimationState {
             initial_factor: numerics::ease_transition_inverse(
-                (self.value - self.range.start()) / (self.range.end() - self.range.start()),
+                (self.value - self.range.0) / (self.range.1 - self.range.0),
             ),
             initial_t: Instant::now(),
         });
@@ -115,14 +115,17 @@ impl CyclicallyAnimatedF64 {
                 AnimationDirection::Forward => 1.0,
                 AnimationDirection::Reverse => -1.0,
             };
-        let factor = dt / self.duration + state.initial_factor;
+        let factor = state.initial_factor + dt / self.duration;
+
         let new_normalized = numerics::ease_transition(factor.clamp(0.0, 1.0));
-        self.value = new_normalized * (self.range.end() - self.range.start()) + self.range.start();
+        self.value = new_normalized * (self.range.1 - self.range.0) + self.range.0;
+
         let reached_end = !(0.0..=1.0).contains(&factor);
         if reached_end {
             self.new_animation_state();
             self.direction.flip();
         }
+
         ui.ctx().request_repaint();
     }
 }
