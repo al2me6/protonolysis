@@ -12,6 +12,7 @@ use eframe::egui::{
 };
 use eframe::epaint::{Color32, FontFamily, Rect, Vec2};
 use egui_extras::{Column, TableBuilder};
+use itertools::Itertools;
 use maplit::hashmap;
 
 use self::animation::CyclicallyAnimatedF64;
@@ -81,6 +82,7 @@ impl Protonolysis {
 
 impl Protonolysis {
     const ANIMATION_TIME: f64 = 4.0;
+    const DEFAULT_PATTERN: &str = "Et₂O (CH₂)";
     const DEFAULT_X: f64 = 0.15;
     const DEFAULT_Y: f64 = 300.;
     const SAMPLES: usize = 5000;
@@ -117,12 +119,11 @@ impl Protonolysis {
         style.spacing.combo_width = 120.;
         cc.egui_ctx.set_style(style);
 
-        let (&selected_preset, splitters) = PEAK_PRESETS.iter().next().unwrap();
         Self {
             field_strength: 600.,
-            selected_preset,
+            selected_preset: Self::DEFAULT_PATTERN,
             peak: Peak {
-                splitters: splitters.clone(),
+                splitters: PEAK_PRESETS[Self::DEFAULT_PATTERN].clone(),
                 fwhm: 1.0,
             },
             view_stage: CyclicallyAnimatedF64::new(1., 0.0..=1.0, Self::ANIMATION_TIME),
@@ -186,7 +187,7 @@ impl Protonolysis {
                 ComboBox::from_id_source("presets_selector")
                     .selected_text(self.selected_preset)
                     .show_ui(ui, |ui| {
-                        for &preset in PEAK_PRESETS.keys() {
+                        for &preset in PEAK_PRESETS.keys().sorted() {
                             ui.selectable_value(&mut self.selected_preset, preset, preset);
                         }
                     });
