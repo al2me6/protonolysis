@@ -65,6 +65,7 @@ impl Protonolysis {
 
     fn remove_splitter(&mut self, i: usize) {
         self.peak.splitters.remove(i);
+        self.view_stage.set_value_clamping(*self.view_stage - 1.);
         self._update_view_stage_bounds();
         self.view_stage.stop_animating();
     }
