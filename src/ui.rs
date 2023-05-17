@@ -277,7 +277,7 @@ impl Protonolysis {
                                 self.swap_splitter(i, i + 1);
                             }
                             // U+2717 BALLOT X.
-                            if button(true, "\u{2717}", "Delete") {
+                            if button(self.peak.splitters.len() > 1, "\u{2717}", "Delete") {
                                 self.remove_splitter(i);
                             }
                         });
