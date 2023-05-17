@@ -1,7 +1,7 @@
 use std::ops::{Deref, RangeInclusive};
-use std::time::Instant;
 
 use eframe::egui::Ui;
+use instant::Instant;
 
 use crate::numerics;
 
