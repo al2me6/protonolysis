@@ -91,6 +91,8 @@ impl Protonolysis {
     const DEFAULT_PATTERN: &str = "Et₂O (CH₂)";
     const DEFAULT_X: f64 = 0.15;
     const DEFAULT_Y: f64 = 300.;
+    const MAX_PROTON_COUNT: u32 = 9;
+    const MAX_SPLITTERS: usize = 4;
     const SAMPLES: usize = 5000;
 
     #[must_use]
@@ -210,7 +212,10 @@ impl Protonolysis {
 
             ui.horizontal(|ui| {
                 if ui
-                    .add_enabled(self.peak.splitters.len() < 5, Button::new("Add"))
+                    .add_enabled(
+                        self.peak.splitters.len() < Self::MAX_SPLITTERS,
+                        Button::new("Add"),
+                    )
                     .on_hover_text("Add new coupled proton type")
                     .clicked()
                 {
@@ -257,7 +262,7 @@ impl Protonolysis {
                         let splitter = &mut self.peak.splitters[i];
                         row.col(|ui| {
                             ui.style_mut().spacing.slider_width = 80.;
-                            ui.add(Slider::new(&mut splitter.n, 1..=10));
+                            ui.add(Slider::new(&mut splitter.n, 1..=Self::MAX_PROTON_COUNT));
                         });
                         row.col(|ui| {
                             ui.add(
