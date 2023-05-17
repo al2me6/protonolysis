@@ -70,6 +70,11 @@ impl Protonolysis {
         self.view_stage.stop_animating();
     }
 
+    fn canonicalize_splitters(&mut self) {
+        self.peak.canonicalize();
+        self.view_stage.stop_animating();
+    }
+
     fn is_preset_modified(&self) -> bool {
         self.peak.splitters != PEAK_PRESETS[self.selected_preset]
     }
@@ -216,7 +221,7 @@ impl Protonolysis {
                     .on_hover_text("Sort by splitting constant in ascending order")
                     .clicked()
                 {
-                    self.peak.canonicalize();
+                    self.canonicalize_splitters();
                 }
             });
 
