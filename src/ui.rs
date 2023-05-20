@@ -94,6 +94,7 @@ impl Protonolysis {
     const MAX_PROTON_COUNT: u32 = 9;
     const MAX_SPLITTERS: usize = 4;
     const SAMPLES: usize = 5000;
+    const TOO_COMPLEX_THRESHOLD: u32 = 100;
 
     #[must_use]
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -297,6 +298,12 @@ impl Protonolysis {
                 }
             });
         });
+        if self.peak.total_peaklet_count() > Self::TOO_COMPLEX_THRESHOLD {
+            ui.label(
+                "⚠ The requested splitting pattern is highly complex and may result \
+                in performance degradation.",
+            );
+        }
 
         ui.separator();
 

@@ -183,6 +183,13 @@ impl Default for Peak {
 }
 
 impl Peak {
+    pub fn total_peaklet_count(&self) -> u32 {
+        self.splitters
+            .iter()
+            .map(Splitter::resultant_peaklet_count)
+            .product()
+    }
+
     #[must_use]
     pub fn name(&self) -> String {
         let splitter_count = self.splitters.len();
