@@ -102,11 +102,12 @@ impl CyclicallyAnimatedF64 {
                 AnimationDirection::Reverse => -1.0,
             };
         *factor += dt / self.duration;
+        let reached_end = !(0.0..=1.0).contains(factor);
+        *factor = factor.clamp(0.0, 1.0);
 
-        let new_normalized = numerics::ease_transition(factor.clamp(0.0, 1.0));
+        let new_normalized = numerics::ease_transition(*factor);
         self.value = new_normalized * (self.range.1 - self.range.0) + self.range.0;
 
-        let reached_end = !(0.0..=1.0).contains(factor);
         if reached_end {
             self.direction.flip();
         }
