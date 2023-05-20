@@ -316,6 +316,7 @@ impl Protonolysis {
                 );
                 ui.horizontal(|ui| {
                     self.view_stage.tick(ui);
+                    ui.style_mut().spacing.slider_width = 200.;
                     ui.add(
                         Slider::from_get_set(self.view_stage.range(), |value| {
                             if let Some(value) = value {
