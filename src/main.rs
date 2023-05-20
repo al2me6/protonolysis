@@ -9,6 +9,24 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![feature(drain_filter, lazy_cell)]
 
+macro_rules! version {
+    () => {
+        concat!(
+            env!("CARGO_PKG_VERSION_MAJOR"),
+            ".",
+            env!("CARGO_PKG_VERSION_MINOR"),
+            ".",
+            env!("CARGO_PKG_VERSION_PATCH"),
+        )
+    };
+}
+
+macro_rules! app_name {
+    () => {
+        "Protonolysis"
+    };
+}
+
 pub mod numerics;
 pub mod peak;
 pub mod ui;
@@ -31,7 +49,7 @@ fn main() -> eframe::Result<()> {
     };
     tracing_subscriber::fmt::init();
     eframe::run_native(
-        "Protonolysis",
+        app_name!(),
         native_options,
         Box::new(|cc| Box::new(ui::Protonolysis::new(cc))),
     )?;

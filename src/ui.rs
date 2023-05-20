@@ -7,8 +7,8 @@ use std::sync::LazyLock;
 
 use eframe::egui::plot::{Line, Plot, PlotBounds, PlotPoints, PlotUi};
 use eframe::egui::{
-    Align, Button, CentralPanel, ComboBox, Context, DragValue, FontData, FontDefinitions,
-    FontTweak, Grid, Layout, SidePanel, Slider, TextStyle, Ui,
+    self, Align, Button, CentralPanel, ComboBox, Context, DragValue, FontData, FontDefinitions,
+    FontTweak, Grid, Layout, SidePanel, Slider, TextStyle, TopBottomPanel, Ui,
 };
 use eframe::epaint::{Color32, FontFamily, Rect, Vec2};
 use egui_extras::{Column, TableBuilder};
@@ -144,7 +144,8 @@ impl Protonolysis {
     }
 
     fn controls(&mut self, ui: &mut Ui) {
-        ui.heading("Protonolysis");
+        ui.add_space(ui.style().spacing.item_spacing.y);
+        ui.heading("¹H-NMR Splitting Patterns");
 
         ui.separator();
 
@@ -522,13 +523,30 @@ impl eframe::App for Protonolysis {
             .min_width(ctx.available_rect().width() * 0.25)
             .resizable(false)
             .show(ctx, |ui| {
+                TopBottomPanel::bottom("info")
+                    .show_separator_line(false)
+                    .frame({
+                        let mut frame = egui::Frame::side_top_panel(ui.style());
+                        frame.inner_margin.left = 0.;
+                        frame.inner_margin.right = 0.;
+                        frame
+                    })
+                    .show_inside(ui, |ui| {
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            ui.hyperlink_to("Source", env!("CARGO_PKG_REPOSITORY"));
+                            ui.separator();
+                            ui.label(concat!(app_name!(), " v", version!()));
+                        });
+                    });
+
                 self.controls(ui);
+
                 ui.separator();
-                if !self.show_splitting_diagram {
-                    return;
+
+                if self.show_splitting_diagram {
+                    ui.label("Splitting diagram:");
+                    self.splitting_diagram(ui);
                 }
-                ui.label("Splitting diagram:");
-                self.splitting_diagram(ui);
             });
 
         CentralPanel::default().show(ctx, |ui| {
