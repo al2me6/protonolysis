@@ -1,6 +1,6 @@
 mod animation;
-mod plotting_utils;
 mod splitting_diagram;
+mod utils;
 
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -8,7 +8,7 @@ use std::sync::LazyLock;
 use eframe::egui::plot::{Line, Plot, PlotBounds, PlotPoints, PlotUi};
 use eframe::egui::{
     self, Align, Button, CentralPanel, ComboBox, Context, DragValue, FontData, FontDefinitions,
-    FontTweak, Grid, Layout, SidePanel, Slider, TextStyle, TopBottomPanel, Ui,
+    FontTweak, Grid, Layout, SidePanel, Slider, TextStyle, Ui,
 };
 use eframe::epaint::{Color32, FontFamily, Rect, Vec2};
 use egui_extras::{Column, TableBuilder};
@@ -17,6 +17,7 @@ use maplit::hashmap;
 
 use self::animation::CyclicallyAnimatedF64;
 use crate::peak::{self, Peak, Splitter};
+use crate::utils::StoreOnNthCall;
 
 pub static PEAK_PRESETS: LazyLock<HashMap<&str, Vec<Splitter>>> = LazyLock::new(|| {
     hashmap! {
@@ -34,6 +35,7 @@ pub struct Protonolysis {
     show_splitting_diagram: bool,
     show_peaklets: bool,
     linked_x_axis: (f64, f64),
+    side_panel_width: StoreOnNthCall<2, f32>,
 }
 
 macro_rules! load_font {
@@ -98,6 +100,8 @@ impl Protonolysis {
 
     #[must_use]
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        // cc.egui_ctx.set_debug_on_hover(true);
+
         let mut fonts = FontDefinitions::empty();
         fonts
             .font_data
@@ -140,6 +144,7 @@ impl Protonolysis {
             show_splitting_diagram: true,
             show_peaklets: false,
             linked_x_axis: (-Self::DEFAULT_X, Self::DEFAULT_X),
+            side_panel_width: StoreOnNthCall::default(),
         }
     }
 
@@ -362,13 +367,25 @@ impl Protonolysis {
     }
 
     fn peak_viewer(&mut self, ui: &mut Ui) {
+        utils::inner_bottom_panel("plot_interaction", ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Controls:");
+                ui.code("drag");
+                ui.label("to pan,");
+                ui.code("scroll");
+                ui.label("to zoom vertically,");
+                ui.code("ctrl+scroll");
+                ui.label("to zoom horizontally.");
+            });
+        });
+
         let Vec2 {
             x: available_width,
             y: available_height,
         } = ui.available_size();
         let placement_origin = ui.next_widget_position();
-        let plot_height = available_height
-            - (ui.text_style_height(&TextStyle::Body) + ui.spacing().item_spacing.y) * 2.;
+        let plot_height =
+            available_height - ui.text_style_height(&TextStyle::Body) - ui.spacing().item_spacing.y;
 
         let waveform = self
             .peak
@@ -389,7 +406,7 @@ impl Protonolysis {
             .allow_zoom(false)
             .height(plot_height);
         peak_plot.show(ui, |plot_ui| {
-            plotting_utils::peak_viewer_interactions(plot_ui, &mut self.linked_x_axis);
+            utils::peak_viewer_interactions(plot_ui, &mut self.linked_x_axis);
 
             let waveform_clone = waveform.clone();
             plot_ui.line(
@@ -418,17 +435,6 @@ impl Protonolysis {
         });
         ui.vertical_centered(|ui| ui.label("δ (ppm)"));
 
-        // Interaction info.
-        ui.horizontal(|ui| {
-            ui.label("Controls:");
-            ui.code("drag");
-            ui.label("to pan,");
-            ui.code("scroll");
-            ui.label("to zoom vertically,");
-            ui.code("ctrl+scroll");
-            ui.label("to zoom horizontally.");
-        });
-
         if !self.show_integral {
             return;
         }
@@ -436,8 +442,8 @@ impl Protonolysis {
         let integral_plot = Plot::new("integral_plot")
             .include_x(-Self::DEFAULT_X)
             .include_x(Self::DEFAULT_X)
-            .include_y(-0.1)
-            .include_y(1.5)
+            .include_y(-0.05)
+            .include_y(1.05)
             .show_axes([false; 2])
             .show_background(false)
             .show_x(false)
@@ -470,7 +476,7 @@ impl Protonolysis {
         };
         ui.put(
             Rect::from_min_size(
-                placement_origin,
+                (placement_origin.x, placement_origin.y + plot_height * 0.025).into(),
                 (available_width, plot_height * 0.2).into(),
             ),
             draw_integral_plot,
@@ -519,38 +525,42 @@ impl Protonolysis {
 
 impl eframe::App for Protonolysis {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        SidePanel::right("controls")
-            .min_width(ctx.available_rect().width() * 0.25)
-            .resizable(false)
-            .show(ctx, |ui| {
-                TopBottomPanel::bottom("info")
-                    .show_separator_line(false)
-                    .frame({
-                        let mut frame = egui::Frame::side_top_panel(ui.style());
-                        frame.inner_margin.left = 0.;
-                        frame.inner_margin.right = 0.;
-                        frame
-                    })
-                    .show_inside(ui, |ui| {
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            ui.hyperlink_to("Source", env!("CARGO_PKG_REPOSITORY"));
-                            ui.separator();
-                            ui.label(concat!(app_name!(), " v", version!()));
-                        });
-                    });
-
-                self.controls(ui);
-
-                ui.separator();
-
-                if self.show_splitting_diagram {
-                    ui.label("Splitting diagram:");
-                    self.splitting_diagram(ui);
-                }
+        let mut side_panel = SidePanel::right("controls").resizable(false);
+        if let Some(width) = self.side_panel_width.get() {
+            side_panel = side_panel.exact_width(width.max(ctx.available_rect().width() * 0.25));
+        }
+        let response = side_panel.show(ctx, |ui| {
+            utils::inner_bottom_panel("about_footer", ui, |ui| {
+                // Right-alignment disabled due to `exact_width` bug.
+                // ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.horizontal(|ui| {
+                    ui.hyperlink_to("Source", env!("CARGO_PKG_REPOSITORY"));
+                    ui.separator();
+                    ui.label(concat!(app_name!(), " v", version!()));
+                });
             });
 
-        CentralPanel::default().show(ctx, |ui| {
-            self.peak_viewer(ui);
+            self.controls(ui);
+
+            ui.separator();
+
+            if self.show_splitting_diagram {
+                ui.label("Splitting diagram:");
+                self.splitting_diagram(ui);
+            }
         });
+        // Note that the table contained within does sizing on the first frame. Thus we take the
+        // computed size from the second frame.
+        self.side_panel_width.set(response.response.rect.width());
+
+        CentralPanel::default()
+            .frame({
+                let mut frame = egui::Frame::central_panel(ctx.style().as_ref());
+                frame.inner_margin.bottom = 2.0;
+                frame
+            })
+            .show(ctx, |ui| {
+                self.peak_viewer(ui);
+            });
     }
 }

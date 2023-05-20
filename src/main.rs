@@ -30,6 +30,7 @@ macro_rules! app_name {
 pub mod numerics;
 pub mod peak;
 pub mod ui;
+pub mod utils;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub const ICON: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/logo32.png"));
