@@ -8,7 +8,7 @@ use std::sync::LazyLock;
 use eframe::egui::plot::{Line, Plot, PlotBounds, PlotPoints, PlotUi};
 use eframe::egui::{
     self, Align, Button, CentralPanel, ComboBox, Context, DragValue, FontData, FontDefinitions,
-    FontTweak, Grid, Layout, SidePanel, Slider, TextStyle, Ui,
+    FontTweak, Grid, Layout, ScrollArea, SidePanel, Slider, TextStyle, Ui,
 };
 use eframe::epaint::{Color32, FontFamily, Rect, Vec2};
 use egui_extras::{Column, TableBuilder};
@@ -521,33 +521,38 @@ impl Protonolysis {
             }
         });
     }
-}
 
-impl eframe::App for Protonolysis {
-    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+    fn side_panel_contents(&mut self, ui: &mut Ui) {
+        self.controls(ui);
+
+        ui.separator();
+
+        if self.show_splitting_diagram {
+            ui.label("Splitting diagram:");
+            self.splitting_diagram(ui);
+        }
+    }
+
+    fn footer(ui: &mut Ui) {
+        utils::inner_bottom_panel("about_footer", ui, |ui| {
+            // Right-alignment disabled due to `exact_width` bug.
+            // ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            ui.horizontal(|ui| {
+                ui.hyperlink_to("Source", env!("CARGO_PKG_REPOSITORY"));
+                ui.separator();
+                ui.label(concat!(app_name!(), " v", version!()));
+            });
+        });
+    }
+
+    fn full_layout(&mut self, ctx: &Context) {
         let mut side_panel = SidePanel::right("controls").resizable(false);
         if let Some(width) = self.side_panel_width.get() {
             side_panel = side_panel.exact_width(width.max(ctx.available_rect().width() * 0.25));
         }
         let response = side_panel.show(ctx, |ui| {
-            utils::inner_bottom_panel("about_footer", ui, |ui| {
-                // Right-alignment disabled due to `exact_width` bug.
-                // ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.horizontal(|ui| {
-                    ui.hyperlink_to("Source", env!("CARGO_PKG_REPOSITORY"));
-                    ui.separator();
-                    ui.label(concat!(app_name!(), " v", version!()));
-                });
-            });
-
-            self.controls(ui);
-
-            ui.separator();
-
-            if self.show_splitting_diagram {
-                ui.label("Splitting diagram:");
-                self.splitting_diagram(ui);
-            }
+            Self::footer(ui);
+            self.side_panel_contents(ui);
         });
         // Note that the table contained within does sizing on the first frame. Thus we take the
         // computed size from the second frame.
@@ -562,5 +567,34 @@ impl eframe::App for Protonolysis {
             .show(ctx, |ui| {
                 self.peak_viewer(ui);
             });
+    }
+
+    fn compressed_layout(&mut self, ctx: &Context) {
+        CentralPanel::default().show(ctx, |ui| {
+            ScrollArea::both().show(ui, |ui| {
+                // TODO: make this usable on phones.
+                // FIXME: somehow make the splitting diagram respond to page scrolls.
+                ui.scope(|ui| {
+                    ui.set_max_height(f32::INFINITY);
+                    self.side_panel_contents(ui);
+                });
+                ui.separator();
+                ui.scope(|ui| {
+                    ui.set_height(ctx.screen_rect().width() * 0.8);
+                    self.peak_viewer(ui);
+                });
+                Self::footer(ui);
+            });
+        });
+    }
+}
+
+impl eframe::App for Protonolysis {
+    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        if ctx.screen_rect().width() < 850. {
+            self.compressed_layout(ctx);
+        } else {
+            self.full_layout(ctx);
+        }
     }
 }
