@@ -1,29 +1,24 @@
 <!DOCTYPE html><html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 
-  <!-- Disable zooming: -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
   
     <title>Protonolysis</title>
     <script type="module">import init from '/protonolysis/protonolysis.js';init('/protonolysis/protonolysis_bg.wasm');</script>
+    <link rel="icon" href="/protonolysis/logo32.ico">
     <base href="/protonolysis/">
 
     <style>
       html {
-        /* Remove touch delay: */
         touch-action: manipulation;
       }
 
       body {
-        /* Light mode background color for what is not covered by the egui canvas,
-            or where the egui canvas is translucent. */
         background: #909090;
       }
 
       @media (prefers-color-scheme: dark) {
         body {
-          /* Dark mode background color for what is not covered by the egui canvas,
-                or where the egui canvas is translucent. */
           background: #404040;
         }
       }
