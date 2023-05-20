@@ -2,7 +2,6 @@
 <html>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 
-  <!-- Disable zooming: -->
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no"
@@ -11,24 +10,20 @@
   <head>
     <title>Protonolysis</title>
     <link data-trunk rel="rust" data-wasm-opt="3" />
+    <link data-trunk rel="icon" href="assets/logo32.ico" />
     <base data-trunk-public-url />
 
     <style>
       html {
-        /* Remove touch delay: */
         touch-action: manipulation;
       }
 
       body {
-        /* Light mode background color for what is not covered by the egui canvas,
-            or where the egui canvas is translucent. */
         background: #909090;
       }
 
       @media (prefers-color-scheme: dark) {
         body {
-          /* Dark mode background color for what is not covered by the egui canvas,
-                or where the egui canvas is translucent. */
           background: #404040;
         }
       }

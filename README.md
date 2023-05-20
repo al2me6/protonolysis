@@ -1,4 +1,7 @@
-# Protonolysis
+<h1 style="display: flex; align-items: center; gap: 0.5em;">
+  <img src="assets/logo.svg" height="64"/>
+  Protonolysis
+</h1>
 
 A spin-1/2 NMR splitting pattern visualization tool.
 

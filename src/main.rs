@@ -14,10 +14,20 @@ pub mod peak;
 pub mod ui;
 
 #[cfg(not(target_arch = "wasm32"))]
+pub const ICON: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/logo32.png"));
+
+#[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
+    let icon = image::load_from_memory(ICON).unwrap().into_rgba8();
+    let (icon_width, icon_height) = icon.dimensions();
     let native_options = eframe::NativeOptions {
         initial_window_size: Some(eframe::epaint::Vec2 { x: 1200., y: 600. }),
-        ..eframe::NativeOptions::default()
+        icon_data: Some(eframe::IconData {
+            rgba: icon.into_raw(),
+            width: icon_width,
+            height: icon_height,
+        }),
+        ..Default::default()
     };
     tracing_subscriber::fmt::init();
     eframe::run_native(
