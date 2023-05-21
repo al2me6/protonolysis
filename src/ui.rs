@@ -8,7 +8,7 @@ use std::sync::LazyLock;
 use eframe::egui::plot::{Line, Plot, PlotBounds, PlotPoints, PlotUi};
 use eframe::egui::{
     self, Align, Button, CentralPanel, ComboBox, Context, DragValue, FontData, FontDefinitions,
-    FontTweak, Grid, Layout, ScrollArea, SidePanel, Slider, TextStyle, Ui,
+    FontTweak, Grid, Layout, RichText, ScrollArea, SidePanel, Slider, TextStyle, Ui,
 };
 use eframe::epaint::{Color32, FontFamily, Rect, Vec2};
 use egui_extras::{Column, TableBuilder};
@@ -249,19 +249,16 @@ impl Protonolysis {
                 .columns(Column::auto(), 3)
                 .column(Column::remainder())
                 .header(row_height, |mut header| {
-                    header.col(|_ui| {});
-                    header.col(|ui| {
-                        ui.strong("Count");
-                    });
-                    header.col(|ui| {
-                        ui.strong("J (Hz)");
-                    });
-                    header.col(|ui| {
-                        ui.strong("Pattern");
-                    });
-                    header.col(|ui| {
-                        ui.strong("Action");
-                    });
+                    let mut col = |text: &str| {
+                        header.col(|ui| {
+                            ui.label(RichText::new(text).underline());
+                        });
+                    };
+                    col("");
+                    col("Count");
+                    col("J (Hz)");
+                    col("Pattern");
+                    col("Actions");
                 });
             table.body(|mut body| {
                 let mut i = 0;
