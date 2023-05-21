@@ -222,7 +222,7 @@ impl Protonolysis {
                 }
                 if ui
                     .add_enabled(enabled, Button::new("Sort by J"))
-                    .on_hover_text("Sort by splitting constant in ascending order")
+                    .on_hover_text("Sort by splitting constant in descending order")
                     .clicked()
                 {
                     self.peak.sort_by_j();
