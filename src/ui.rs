@@ -5,10 +5,10 @@ pub mod utils;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use eframe::egui::plot::{Line, Plot, PlotBounds, PlotPoints, PlotUi};
+use eframe::egui::plot::{Line, PlotBounds, PlotPoints, PlotUi};
 use eframe::egui::{
     self, Align, Button, CentralPanel, ComboBox, Context, DragValue, FontData, FontDefinitions,
-    FontTweak, Grid, Layout, RichText, ScrollArea, SidePanel, Slider, TextStyle, Ui,
+    FontTweak, Layout, RichText, ScrollArea, SidePanel, Slider, TextStyle, Ui,
 };
 use eframe::epaint::{Color32, FontFamily, Rect, Vec2};
 use egui_extras::{Column, TableBuilder};
@@ -18,6 +18,16 @@ use maplit::hashmap;
 use self::animation::CyclicallyAnimatedF64;
 use crate::peak::{self, FractionalStageIndex, MultipletCascade, Peak, Splitter};
 use crate::utils::StoreOnNthCall;
+
+macro_rules! load_font {
+    ($name:literal) => {
+        FontData::from_static(include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/assets/",
+            $name
+        )))
+    };
+}
 
 pub static PEAK_PRESETS: LazyLock<HashMap<&str, Vec<Splitter>>> = LazyLock::new(|| {
     hashmap! {
@@ -37,16 +47,6 @@ pub struct Protonolysis {
     linked_x_axis: (f64, f64),
     side_panel_width: StoreOnNthCall<2, f32>,
     cached_partial_cascade: MultipletCascade,
-}
-
-macro_rules! load_font {
-    ($name:literal) => {
-        FontData::from_static(include_bytes!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/assets/",
-            $name
-        )))
-    };
 }
 
 impl Protonolysis {
@@ -141,60 +141,53 @@ impl Protonolysis {
         let enabled = self.can_modify_configuration();
 
         utils::vertical_space(ui);
-
         ui.heading("¹H-NMR Splitting Patterns");
+        ui.separator();
+
+        utils::two_column_grid("controls_instrument", ui, |ui| {
+            ui.label("Instrument frequency:");
+            ui.add_enabled(
+                enabled,
+                Slider::new(&mut self.field_strength, 40.0..=1200.0)
+                    .fixed_decimals(0)
+                    .step_by(20.)
+                    .suffix(" MHz"),
+            );
+            ui.end_row();
+
+            ui.label("Field strength:")
+                .on_hover_text("Strength of magnetic field of instrument");
+            ui.add_enabled(
+                false,
+                DragValue::new(&mut peak::mhz_to_tesla(self.field_strength))
+                    .max_decimals(1)
+                    .suffix(" T"),
+            );
+            ui.end_row();
+        });
 
         ui.separator();
 
-        Grid::new("controls_sliders_instrument")
-            .num_columns(2)
-            .show(ui, |ui| {
-                ui.label("Instrument frequency:");
-                ui.add_enabled(
-                    enabled,
-                    Slider::new(&mut self.field_strength, 40.0..=1200.0)
-                        .fixed_decimals(0)
-                        .step_by(20.)
-                        .suffix(" MHz"),
-                );
-                ui.end_row();
+        utils::two_column_grid("controls_peak", ui, |ui| {
+            ui.label("Peak FWHM:")
+                .on_hover_text("Full width at half maximum (i.e., broadness) of peaks");
+            ui.add_enabled(
+                enabled,
+                Slider::new(&mut self.peak.fwhm, 0.5..=4.0)
+                    .fixed_decimals(1)
+                    .smart_aim(false)
+                    .suffix(" Hz"),
+            );
+            ui.end_row();
 
-                ui.label("Field strength:")
-                    .on_hover_text("Strength of magnetic field of instrument");
-                ui.add_enabled(
-                    false,
-                    DragValue::new(&mut peak::mhz_to_tesla(self.field_strength))
-                        .max_decimals(1)
-                        .suffix(" T"),
-                );
-                ui.end_row();
-            });
+            ui.label("Configure coupled protons:");
+            ui.end_row();
+        });
 
-        ui.separator();
-
-        Grid::new("controls_sliders_peak")
-            .num_columns(2)
-            .show(ui, |ui| {
-                ui.label("Peak FWHM:")
-                    .on_hover_text("Full width at half maximum (i.e., broadness) of peaks");
-                ui.add_enabled(
-                    enabled,
-                    Slider::new(&mut self.peak.fwhm, 0.5..=4.0)
-                        .fixed_decimals(1)
-                        .smart_aim(false)
-                        .suffix(" Hz"),
-                );
-                ui.end_row();
-
-                ui.label("Configure coupled protons:");
-                ui.end_row();
-            });
-
-        ui.indent("controls_splitter", |ui| {
+        ui.indent("controls_splitters", |ui| {
             ui.horizontal(|ui| {
                 ui.label("Apply preset:");
-                ui.scope(|ui| {
-                    ui.set_enabled(enabled);
+                ui.add_enabled_ui(enabled, |ui| {
                     ComboBox::from_id_source("presets_selector")
                         .selected_text(self.selected_preset)
                         .show_ui(ui, |ui| {
@@ -240,9 +233,7 @@ impl Protonolysis {
             let table = TableBuilder::new(ui)
                 .striped(true)
                 .cell_layout(Layout::left_to_right(Align::Center))
-                .column(Column::auto_with_initial_suggestion(20.))
-                .columns(Column::auto(), 3)
-                .column(Column::remainder())
+                .columns(Column::auto_with_initial_suggestion(20.), 5)
                 .header(row_height, |mut header| {
                     let mut col = |text: &str| {
                         header.col(|ui| {
@@ -285,8 +276,8 @@ impl Protonolysis {
                             }
                         });
                         row.col(|ui| {
-                            let mut button = |show, text, hover| {
-                                ui.add_enabled(enabled && show, Button::new(text))
+                            let mut button = |enabled2, text, hover| {
+                                ui.add_enabled(enabled && enabled2, Button::new(text))
                                     .on_hover_text(hover)
                                     .clicked()
                             };
@@ -326,57 +317,55 @@ impl Protonolysis {
 
         ui.separator();
 
-        Grid::new("controls_sliders_view")
-            .num_columns(2)
-            .show(ui, |ui| {
-                ui.label("Apply splitting up to level:").on_hover_text(
-                    "Draw the peak as if only the first n proton types were present. A fractional \
+        utils::two_column_grid("controls_view", ui, |ui| {
+            ui.label("Apply splitting up to level:").on_hover_text(
+                "Draw the peak as if only the first n proton types were present. A fractional \
                     value indicates partial application of the last splitting constant.",
+            );
+            ui.horizontal(|ui| {
+                self.view_stage.tick(ui);
+                ui.style_mut().spacing.slider_width = 200.;
+                ui.add(
+                    Slider::from_get_set(self.view_stage.range(), |value| {
+                        if let Some(value) = value {
+                            self.view_stage.set_value_clamping(value);
+                        }
+                        *self.view_stage
+                    })
+                    .custom_formatter(|x, _| {
+                        if approx::abs_diff_eq!(x, x.round(), epsilon = 8e-3) {
+                            format!("{x:.0}")
+                        } else {
+                            format!("{x:.2}")
+                        }
+                    }),
                 );
-                ui.horizontal(|ui| {
-                    self.view_stage.tick(ui);
-                    ui.style_mut().spacing.slider_width = 200.;
-                    ui.add(
-                        Slider::from_get_set(self.view_stage.range(), |value| {
-                            if let Some(value) = value {
-                                self.view_stage.set_value_clamping(value);
-                            }
-                            *self.view_stage
-                        })
-                        .custom_formatter(|x, _| {
-                            if approx::abs_diff_eq!(x, x.round(), epsilon = 8e-3) {
-                                format!("{x:.0}")
-                            } else {
-                                format!("{x:.2}")
-                            }
-                        }),
-                    );
-                    let animate_text = if self.view_stage.is_animating() {
-                        "Stop"
-                    } else {
-                        "Animate"
-                    };
-                    if ui.button(animate_text).clicked() {
-                        self.view_stage.toggle_animation();
-                    }
-                });
-                ui.end_row();
-
-                ui.label("Show:");
-                ui.checkbox(&mut self.show_integral, "Peak integral");
-                ui.end_row();
-
-                ui.label("");
-                ui.checkbox(&mut self.show_splitting_diagram, "Splitting diagram");
-                ui.end_row();
-
-                ui.label("");
-                ui.checkbox(&mut self.show_peaklets, "Individual contributions")
-                    .on_hover_text(
-                        "Draw the individual peaks making up the multiplet to elucidate overlap",
-                    );
-                ui.end_row();
+                let animate_text = if self.view_stage.is_animating() {
+                    "Stop"
+                } else {
+                    "Animate"
+                };
+                if ui.button(animate_text).clicked() {
+                    self.view_stage.toggle_animation();
+                }
             });
+            ui.end_row();
+
+            ui.label("Show:");
+            ui.checkbox(&mut self.show_integral, "Peak integral");
+            ui.end_row();
+
+            ui.label("");
+            ui.checkbox(&mut self.show_splitting_diagram, "Splitting diagram");
+            ui.end_row();
+
+            ui.label("");
+            ui.checkbox(&mut self.show_peaklets, "Individual contributions")
+                .on_hover_text(
+                    "Draw the individual peaks making up the multiplet to elucidate overlap",
+                );
+            ui.end_row();
+        });
 
         self.cached_partial_cascade = self
             .peak
@@ -409,17 +398,12 @@ impl Protonolysis {
             .cached_partial_cascade
             .final_waveform(self.field_strength);
 
-        let peak_plot = Plot::new("peak_plot")
+        let peak_plot = utils::make_noninteractable_plot("peak_plot")
             .include_x(-Self::DEFAULT_X)
             .include_x(Self::DEFAULT_X)
             .include_y(Self::DEFAULT_Y * -0.05)
             .include_y(Self::DEFAULT_Y * 1.1)
-            .show_x(false)
-            .show_y(false)
-            .allow_drag(false)
-            .allow_boxed_zoom(false)
-            .allow_scroll(false)
-            .allow_zoom(false)
+            .allow_double_click_reset(true)
             .height(plot_height);
         peak_plot.show(ui, |plot_ui| {
             utils::peak_viewer_interactions(plot_ui, &mut self.linked_x_axis);
@@ -455,20 +439,13 @@ impl Protonolysis {
             return;
         }
 
-        let integral_plot = Plot::new("integral_plot")
+        let integral_plot = utils::make_noninteractable_plot("integral_plot")
             .include_x(-Self::DEFAULT_X)
             .include_x(Self::DEFAULT_X)
             .include_y(-0.05)
             .include_y(1.05)
             .show_axes([false; 2])
-            .show_background(false)
-            .show_x(false)
-            .show_y(false)
-            .allow_boxed_zoom(false)
-            .allow_double_click_reset(false)
-            .allow_drag(false)
-            .allow_scroll(false)
-            .allow_zoom(false);
+            .show_background(false);
         let draw_integral_plot = |ui: &mut Ui| {
             integral_plot
                 .show(ui, |plot_ui: &mut PlotUi| {
@@ -500,16 +477,11 @@ impl Protonolysis {
     }
 
     fn splitting_diagram(&self, ui: &mut Ui) {
-        let plot = Plot::new("splitting_diagram")
+        let plot = utils::make_noninteractable_plot("splitting_diagram")
             .show_axes([false; 2])
             .show_background(false)
             .show_x(false)
             .show_y(false)
-            .allow_boxed_zoom(false)
-            .allow_double_click_reset(false)
-            .allow_drag(false)
-            .allow_scroll(false)
-            .allow_zoom(false)
             .auto_bounds_x()
             .auto_bounds_y()
             .height(

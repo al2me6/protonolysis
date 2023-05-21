@@ -1,5 +1,5 @@
-use eframe::egui::plot::{PlotBounds, PlotUi};
-use eframe::egui::{self, CursorIcon, InputState, Margin, TopBottomPanel, Ui};
+use eframe::egui::plot::{Plot, PlotBounds, PlotUi};
+use eframe::egui::{self, CursorIcon, Grid, InputState, Margin, TopBottomPanel, Ui};
 use eframe::epaint::Vec2;
 
 /// Apply custom zoom and pan interactions for peak plots.
@@ -59,4 +59,20 @@ pub fn inner_bottom_panel(id: &'static str, ui: &mut Ui, add_contents: impl FnOn
 
 pub fn vertical_space(ui: &mut Ui) {
     ui.add_space(ui.style().spacing.item_spacing.y);
+}
+
+pub fn two_column_grid(id: &'static str, ui: &mut Ui, add_contents: impl FnOnce(&mut Ui)) {
+    Grid::new(id).num_columns(2).show(ui, add_contents);
+}
+
+#[must_use]
+pub fn make_noninteractable_plot(id: &'static str) -> Plot {
+    Plot::new(id)
+        .show_x(false)
+        .show_y(false)
+        .allow_drag(false)
+        .allow_boxed_zoom(false)
+        .allow_scroll(false)
+        .allow_zoom(false)
+        .allow_double_click_reset(false)
 }
