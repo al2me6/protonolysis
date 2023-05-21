@@ -7,7 +7,7 @@
     clippy::too_many_lines
 )]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-#![feature(drain_filter, lazy_cell)]
+#![feature(array_windows, drain_filter, lazy_cell)]
 
 macro_rules! version {
     () => {

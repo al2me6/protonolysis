@@ -39,10 +39,14 @@ pub struct Peaklet {
     pub integration: f64,
 }
 
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct SplittingRelationship<'a> {
     pub parent: &'a Peaklet,
     pub children: &'a [Peaklet],
 }
+
+#[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+pub struct FractionalStageIndex(f64);
 
 #[derive(Clone, PartialEq, Debug)]
 /// Splitting patterns resulting from the cumulative contributions of all preceding splitters,
@@ -100,12 +104,50 @@ impl Peaklet {
         δ: 0.,
         integration: 1.,
     };
+
+    #[must_use]
+    pub fn overlaps_with(&self, b: Peaklet, fwhm: f64) -> bool {
+        (self.δ - b.δ).abs() < fwhm * 1.1
+    }
 }
 
 impl<'a> SplittingRelationship<'a> {
     #[must_use]
     pub fn children_count(&self) -> usize {
         self.children.len()
+    }
+}
+
+impl FractionalStageIndex {
+    #[must_use]
+    pub fn new(index: f64) -> FractionalStageIndex {
+        assert!(index >= 0.0);
+        Self(index)
+    }
+
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[must_use]
+    pub fn full(&self) -> usize {
+        self.0.floor() as usize
+    }
+
+    #[must_use]
+    pub fn has_significant_partial(&self) -> bool {
+        approx::abs_diff_ne!(self.0.fract(), 0.0)
+    }
+
+    #[must_use]
+    pub fn partial_and_index(&self) -> Option<(usize, f64)> {
+        if self.has_significant_partial() {
+            Some((self.full() + 1, self.0.fract()))
+        } else {
+            None
+        }
+    }
+
+    #[must_use]
+    pub fn total_stage_count(&self) -> usize {
+        self.full() + usize::from(self.has_significant_partial())
     }
 }
 
@@ -171,6 +213,24 @@ impl MultipletCascade {
             .max_by(f64::total_cmp)
             .unwrap()
     }
+
+    #[must_use]
+    /// An estimate of whether the splitting _introduced in this stage only_ is visually resolved.
+    /// Note that this (intentionally) does not consider whether the peaklet groups (_i.e._, those
+    /// contained in a single [`SplittingRelationship`]) in the stage overlap with _each other_.
+    pub fn is_stage_resolved(&self, n: usize) -> bool {
+        if n == 0 {
+            true
+        } else {
+            // Note that each peaklet group experiences the same splitting, so only check one.
+            self.iter_nth_stage(n)
+                .next()
+                .unwrap()
+                .children
+                .array_windows()
+                .all(|[a, b]| !a.overlaps_with(*b, self.fwhm))
+        }
+    }
 }
 
 impl Default for Peak {
@@ -204,15 +264,12 @@ impl Peak {
     }
 
     #[must_use]
-    pub fn nth_partial_peak(&self, n: f64) -> Self {
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let (n, partial) = (n.floor() as usize, n.fract());
+    pub fn nth_partial_peak(&self, n: FractionalStageIndex) -> Self {
         let mut clone = self.clone();
-        let partial_is_significant = approx::relative_ne!(0.0, partial);
-        let len = if partial_is_significant { n + 1 } else { n };
-        clone.splitters.truncate(len);
-        if partial_is_significant {
-            clone.splitters.last_mut().unwrap().j *= partial;
+        clone.splitters.truncate(n.total_stage_count());
+        if let Some((idx, part)) = n.partial_and_index() {
+            // Note that the splitters do not contain the base stage.
+            clone.splitters[idx - 1].j *= part;
         }
         clone
     }

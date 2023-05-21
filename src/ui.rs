@@ -16,7 +16,7 @@ use itertools::Itertools;
 use maplit::hashmap;
 
 use self::animation::CyclicallyAnimatedF64;
-use crate::peak::{self, Peak, Splitter};
+use crate::peak::{self, FractionalStageIndex, MultipletCascade, Peak, Splitter};
 use crate::utils::StoreOnNthCall;
 
 pub static PEAK_PRESETS: LazyLock<HashMap<&str, Vec<Splitter>>> = LazyLock::new(|| {
@@ -36,6 +36,7 @@ pub struct Protonolysis {
     show_peaklets: bool,
     linked_x_axis: (f64, f64),
     side_panel_width: StoreOnNthCall<2, f32>,
+    cached_partial_cascade: MultipletCascade,
 }
 
 macro_rules! load_font {
@@ -132,19 +133,22 @@ impl Protonolysis {
         style.spacing.combo_width = 120.;
         cc.egui_ctx.set_style(style);
 
+        let peak = Peak {
+            splitters: PEAK_PRESETS[Self::DEFAULT_PATTERN].clone(),
+            fwhm: 1.0,
+        };
+        let cascade = peak.build_multiplet_cascade();
         Self {
             field_strength: 600.,
             selected_preset: Self::DEFAULT_PATTERN,
-            peak: Peak {
-                splitters: PEAK_PRESETS[Self::DEFAULT_PATTERN].clone(),
-                fwhm: 1.0,
-            },
+            peak,
             view_stage: CyclicallyAnimatedF64::new(1., 0.0..=1.0, Self::ANIMATION_TIME),
             show_integral: true,
             show_splitting_diagram: true,
             show_peaklets: false,
             linked_x_axis: (-Self::DEFAULT_X, Self::DEFAULT_X),
             side_panel_width: StoreOnNthCall::default(),
+            cached_partial_cascade: cascade,
         }
     }
 
@@ -364,6 +368,11 @@ impl Protonolysis {
                     );
                 ui.end_row();
             });
+
+        self.cached_partial_cascade = self
+            .peak
+            .nth_partial_peak(FractionalStageIndex::new(*self.view_stage))
+            .build_multiplet_cascade();
     }
 
     fn peak_viewer(&mut self, ui: &mut Ui) {
@@ -388,9 +397,7 @@ impl Protonolysis {
             available_height - ui.text_style_height(&TextStyle::Body) - ui.spacing().item_spacing.y;
 
         let waveform = self
-            .peak
-            .nth_partial_peak(*self.view_stage)
-            .build_multiplet_cascade()
+            .cached_partial_cascade
             .final_waveform(self.field_strength);
 
         let peak_plot = Plot::new("peak_plot")
@@ -484,8 +491,6 @@ impl Protonolysis {
     }
 
     fn splitting_diagram(&self, ui: &mut Ui) {
-        let cascade = self.peak.build_multiplet_cascade();
-
         let plot = Plot::new("splitting_diagram")
             .show_axes([false; 2])
             .show_background(false)
@@ -505,20 +510,12 @@ impl Protonolysis {
             .data_aspect(15.);
 
         plot.show(ui, |plot_ui| {
-            splitting_diagram::draw_peaklet_marker(plot_ui, &cascade.base_peaklet(), 0, 1., true);
-            for i in 1..=cascade.child_stages_count() {
-                let enabled = (i as f64) - 0.5 <= *self.view_stage;
-                let max_integration = cascade.max_integration_of_stage(i);
-                for group in cascade.iter_nth_stage(i) {
-                    splitting_diagram::draw_group_children_and_connectors(
-                        plot_ui,
-                        &group,
-                        i,
-                        max_integration,
-                        enabled,
-                    );
-                }
-            }
+            splitting_diagram::draw_splitting_diagram(
+                plot_ui,
+                &self.peak.build_multiplet_cascade(),
+                &self.cached_partial_cascade,
+                FractionalStageIndex::new(*self.view_stage),
+            );
         });
     }
 
