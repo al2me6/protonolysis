@@ -1,6 +1,6 @@
 mod animation;
 mod splitting_diagram;
-mod utils;
+pub mod utils;
 
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -47,53 +47,6 @@ macro_rules! load_font {
             $name
         )))
     };
-}
-
-impl Protonolysis {
-    fn _update_view_stage_bounds(&mut self) {
-        self.view_stage
-            .set_range_clamping(0.0..=(self.peak.splitters.len() as f64));
-    }
-
-    fn _update_animation_duration(&mut self) {
-        self.view_stage
-            .set_duration(Self::ANIMATION_TIME_PER_STAGE * f64::from(self.peak.stage_count()));
-    }
-
-    fn swap_splitter(&mut self, i: usize, j: usize) {
-        self.peak.splitters.swap(i, j);
-        self.view_stage.stop_animating();
-    }
-
-    fn push_splitter(&mut self, splitter: Splitter) {
-        self.peak.splitters.push(splitter);
-        self._update_view_stage_bounds();
-        self._update_animation_duration();
-        self.view_stage.set_value_clamping(*self.view_stage + 1.);
-    }
-
-    fn remove_splitter(&mut self, i: usize) {
-        self.peak.splitters.remove(i);
-        self.view_stage.set_value_clamping(*self.view_stage - 1.);
-        self._update_view_stage_bounds();
-        self._update_animation_duration();
-        self.view_stage.stop_animating();
-    }
-
-    fn canonicalize_splitters(&mut self) {
-        self.peak.canonicalize();
-        self.view_stage.stop_animating();
-    }
-
-    fn is_preset_modified(&self) -> bool {
-        self.peak.splitters != PEAK_PRESETS[self.selected_preset]
-    }
-
-    fn apply_preset(&mut self) {
-        self.peak.splitters = PEAK_PRESETS[self.selected_preset].clone();
-        self._update_view_stage_bounds();
-        self.view_stage.set_value_clamping(f64::INFINITY);
-    }
 }
 
 impl Protonolysis {
@@ -144,7 +97,7 @@ impl Protonolysis {
             splitters: PEAK_PRESETS[Self::DEFAULT_PATTERN].clone(),
             fwhm: 1.0,
         };
-        let cascade = peak.build_multiplet_cascade();
+        let cached_partial_cascade = peak.build_multiplet_cascade();
         Self {
             field_strength: 600.,
             selected_preset: Self::DEFAULT_PATTERN,
@@ -155,12 +108,40 @@ impl Protonolysis {
             show_peaklets: false,
             linked_x_axis: (-Self::DEFAULT_X, Self::DEFAULT_X),
             side_panel_width: StoreOnNthCall::default(),
-            cached_partial_cascade: cascade,
+            cached_partial_cascade,
         }
     }
+}
 
+impl Protonolysis {
+    fn can_modify_configuration(&self) -> bool {
+        !self.view_stage.is_animating()
+    }
+
+    fn update_animation_parameters(&mut self) {
+        self.view_stage
+            .set_range_clamping(0.0..=(self.peak.splitters.len() as f64));
+        self.view_stage
+            .set_duration(Self::ANIMATION_TIME_PER_STAGE * f64::from(self.peak.stage_count()));
+    }
+
+    fn is_preset_modified(&self) -> bool {
+        self.peak.splitters != PEAK_PRESETS[self.selected_preset]
+    }
+
+    fn apply_preset(&mut self) {
+        self.peak.splitters = PEAK_PRESETS[self.selected_preset].clone();
+        self.update_animation_parameters();
+        self.view_stage.set_value_clamping(f64::INFINITY);
+    }
+}
+
+impl Protonolysis {
     fn controls(&mut self, ui: &mut Ui) {
-        ui.add_space(ui.style().spacing.item_spacing.y);
+        let enabled = self.can_modify_configuration();
+
+        utils::vertical_space(ui);
+
         ui.heading("¹H-NMR Splitting Patterns");
 
         ui.separator();
@@ -169,7 +150,8 @@ impl Protonolysis {
             .num_columns(2)
             .show(ui, |ui| {
                 ui.label("Instrument frequency:");
-                ui.add(
+                ui.add_enabled(
+                    enabled,
                     Slider::new(&mut self.field_strength, 40.0..=1200.0)
                         .fixed_decimals(0)
                         .step_by(20.)
@@ -195,7 +177,8 @@ impl Protonolysis {
             .show(ui, |ui| {
                 ui.label("Peak FWHM:")
                     .on_hover_text("Full width at half maximum (i.e., broadness) of peaks");
-                ui.add(
+                ui.add_enabled(
+                    enabled,
                     Slider::new(&mut self.peak.fwhm, 0.5..=4.0)
                         .fixed_decimals(1)
                         .smart_aim(false)
@@ -210,17 +193,20 @@ impl Protonolysis {
         ui.indent("controls_splitter", |ui| {
             ui.horizontal(|ui| {
                 ui.label("Apply preset:");
-                ComboBox::from_id_source("presets_selector")
-                    .selected_text(self.selected_preset)
-                    .show_ui(ui, |ui| {
-                        for &preset in PEAK_PRESETS.keys().sorted() {
-                            ui.selectable_value(&mut self.selected_preset, preset, preset);
-                        }
-                    });
+                ui.scope(|ui| {
+                    ui.set_enabled(enabled);
+                    ComboBox::from_id_source("presets_selector")
+                        .selected_text(self.selected_preset)
+                        .show_ui(ui, |ui| {
+                            for &preset in PEAK_PRESETS.keys().sorted() {
+                                ui.selectable_value(&mut self.selected_preset, preset, preset);
+                            }
+                        });
+                });
 
                 let modified = self.is_preset_modified();
                 let apply_button = &ui.add_enabled(
-                    modified,
+                    enabled && modified,
                     Button::new(if modified { "Apply" } else { "Applied" }),
                 );
                 if apply_button.clicked() {
@@ -231,20 +217,22 @@ impl Protonolysis {
             ui.horizontal(|ui| {
                 if ui
                     .add_enabled(
-                        self.peak.splitters.len() < Self::MAX_SPLITTERS,
+                        enabled && self.peak.splitters.len() < Self::MAX_SPLITTERS,
                         Button::new("Add"),
                     )
                     .on_hover_text("Add new coupled proton type")
                     .clicked()
                 {
-                    self.push_splitter(Splitter::default());
+                    self.peak.splitters.push(Splitter::default());
+                    self.update_animation_parameters();
+                    self.view_stage.set_value_clamping(*self.view_stage + 1.);
                 }
                 if ui
-                    .button("Sort by J")
+                    .add_enabled(enabled, Button::new("Sort by J"))
                     .on_hover_text("Sort by splitting constant in ascending order")
                     .clicked()
                 {
-                    self.canonicalize_splitters();
+                    self.peak.canonicalize();
                 }
             });
 
@@ -277,21 +265,18 @@ impl Protonolysis {
                         let splitter = &mut self.peak.splitters[i];
                         row.col(|ui| {
                             ui.style_mut().spacing.slider_width = 80.;
-                            let resp =
-                                ui.add(Slider::new(&mut splitter.n, 1..=Self::MAX_PROTON_COUNT));
-                            if resp.changed() {
-                                self.view_stage.stop_animating();
-                            }
+                            ui.add_enabled(
+                                enabled,
+                                Slider::new(&mut splitter.n, 1..=Self::MAX_PROTON_COUNT),
+                            );
                         });
                         row.col(|ui| {
-                            let resp = ui.add(
+                            ui.add_enabled(
+                                enabled,
                                 Slider::new(&mut splitter.j, 0.2..=20.0)
                                     .fixed_decimals(1)
                                     .smart_aim(false),
                             );
-                            if resp.changed() {
-                                self.view_stage.stop_animating();
-                            }
                         });
                         row.col(|ui| {
                             let label = ui.label(splitter.abbreviate_pattern());
@@ -300,20 +285,22 @@ impl Protonolysis {
                             }
                         });
                         row.col(|ui| {
-                            let mut button = |enabled, text, hover| {
-                                ui.add_enabled(enabled, Button::new(text))
+                            let mut button = |show, text, hover| {
+                                ui.add_enabled(enabled && show, Button::new(text))
                                     .on_hover_text(hover)
                                     .clicked()
                             };
                             if button(i > 0, "↑", "Move up") {
-                                self.swap_splitter(i - 1, i);
+                                self.peak.splitters.swap(i - 1, i);
                             }
                             if button(i < self.peak.splitters.len() - 1, "↓", "Move down") {
-                                self.swap_splitter(i, i + 1);
+                                self.peak.splitters.swap(i, i + 1);
                             }
                             // U+2717 BALLOT X.
                             if button(self.peak.splitters.len() > 1, "\u{2717}", "Delete") {
-                                self.remove_splitter(i);
+                                self.peak.splitters.remove(i);
+                                self.view_stage.set_value_clamping(*self.view_stage - 1.);
+                                self.update_animation_parameters();
                             }
                         });
                     };
@@ -322,7 +309,7 @@ impl Protonolysis {
                 }
             });
 
-            ui.add_space(ui.style().spacing.item_spacing.y);
+            utils::vertical_space(ui);
 
             ui.label(format!(
                 "Resulting pattern: {}",

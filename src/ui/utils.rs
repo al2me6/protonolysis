@@ -3,7 +3,7 @@ use eframe::egui::{self, CursorIcon, InputState, Margin, TopBottomPanel, Ui};
 use eframe::epaint::Vec2;
 
 /// Apply custom zoom and pan interactions for peak plots.
-pub(super) fn peak_viewer_interactions(plot_ui: &mut PlotUi, x_axis: &mut (f64, f64)) {
+pub fn peak_viewer_interactions(plot_ui: &mut PlotUi, x_axis: &mut (f64, f64)) {
     if !plot_ui.plot_hovered() {
         return;
     }
@@ -47,11 +47,7 @@ pub(super) fn peak_viewer_interactions(plot_ui: &mut PlotUi, x_axis: &mut (f64, 
     }
 }
 
-pub(super) fn inner_bottom_panel(
-    id: &'static str,
-    ui: &mut Ui,
-    add_contents: impl FnOnce(&mut Ui),
-) {
+pub fn inner_bottom_panel(id: &'static str, ui: &mut Ui, add_contents: impl FnOnce(&mut Ui)) {
     TopBottomPanel::bottom(id)
         .show_separator_line(false)
         .frame(
@@ -59,4 +55,8 @@ pub(super) fn inner_bottom_panel(
                 .inner_margin(Margin::symmetric(0.0, ui.style().spacing.item_spacing.y)),
         )
         .show_inside(ui, add_contents);
+}
+
+pub fn vertical_space(ui: &mut Ui) {
+    ui.add_space(ui.style().spacing.item_spacing.y);
 }
