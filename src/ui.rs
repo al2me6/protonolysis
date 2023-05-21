@@ -280,7 +280,10 @@ impl Protonolysis {
                             );
                         });
                         row.col(|ui| {
-                            ui.label(splitter.name_pattern());
+                            let label = ui.label(splitter.abbreviate_pattern());
+                            if let Some(name) = splitter.name_pattern() {
+                                label.on_hover_text(name);
+                            }
                         });
                         row.col(|ui| {
                             let mut button = |enabled, text, hover| {
@@ -304,13 +307,21 @@ impl Protonolysis {
                     i += 1;
                 }
             });
+
+            ui.add_space(ui.style().spacing.item_spacing.y);
+
+            ui.label(format!(
+                "Resulting pattern: {}",
+                self.peak.name().unwrap_or("<complex>".to_owned())
+            ));
+
+            if self.peak.total_peaklet_count() > Self::TOO_COMPLEX_THRESHOLD {
+                ui.label(
+                    "⚠ The requested splitting pattern is highly complex and may result \
+                    in performance degradation!",
+                );
+            }
         });
-        if self.peak.total_peaklet_count() > Self::TOO_COMPLEX_THRESHOLD {
-            ui.label(
-                "⚠ The requested splitting pattern is highly complex and may result \
-                in performance degradation.",
-            );
-        }
 
         ui.separator();
 

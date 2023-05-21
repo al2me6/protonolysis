@@ -79,7 +79,10 @@ impl Default for Splitter {
 }
 
 impl Splitter {
-    pub const PATTERN_ABBREVIATIONS: [&str; 6] = ["s", "d", "t", "q", "p", "h"];
+    pub const PATTERN_ABBREVIATIONS: [&str; 7] = ["s", "d", "t", "q", "p", "h", "hept"];
+    pub const PATTERN_NAMES: [&str; 7] = [
+        "singlet", "doublet", "triplet", "quartet", "pentet", "hextet", "heptet",
+    ];
 
     #[must_use]
     pub fn resultant_peaklet_count(&self) -> u32 {
@@ -87,7 +90,7 @@ impl Splitter {
     }
 
     #[must_use]
-    pub fn name_pattern(&self) -> Cow<'static, str> {
+    pub fn abbreviate_pattern(&self) -> Cow<'static, str> {
         // N.b. indexing: peak count = n + 1, but 0-indexing subtracts 1.
         Self::PATTERN_ABBREVIATIONS
             .get(self.n as usize)
@@ -96,6 +99,11 @@ impl Splitter {
                 || self.resultant_peaklet_count().to_string().into(),
                 Cow::Borrowed,
             )
+    }
+
+    #[must_use]
+    pub fn name_pattern(&self) -> Option<&'static str> {
+        Self::PATTERN_NAMES.get(self.n as usize).copied()
     }
 }
 
@@ -251,12 +259,16 @@ impl Peak {
     }
 
     #[must_use]
-    pub fn name(&self) -> String {
+    pub fn name(&self) -> Option<String> {
         let splitter_count = self.splitters.len();
         if splitter_count == 0 {
-            return Splitter::PATTERN_ABBREVIATIONS[0].to_owned();
+            return Some(Splitter::PATTERN_ABBREVIATIONS[0].to_owned());
         }
-        self.splitters.iter().map(Splitter::name_pattern).collect()
+        self.splitters
+            .iter()
+            .map(Splitter::abbreviate_pattern)
+            .map(|name| (name.len() == 1 && matches!(name, Cow::Borrowed(_))).then_some(name))
+            .collect()
     }
 
     pub fn canonicalize(&mut self) {
