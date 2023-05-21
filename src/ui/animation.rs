@@ -53,6 +53,10 @@ impl CyclicallyAnimatedF64 {
         self.range.0..=self.range.1
     }
 
+    pub(super) fn set_duration(&mut self, duration: f64) {
+        self.duration = duration;
+    }
+
     fn set_value_inner(&mut self, value: f64) {
         self.value = value.clamp(self.range.0, self.range.1);
     }

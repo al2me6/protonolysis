@@ -55,6 +55,11 @@ impl Protonolysis {
             .set_range_clamping(0.0..=(self.peak.splitters.len() as f64));
     }
 
+    fn _update_animation_duration(&mut self) {
+        self.view_stage
+            .set_duration(Self::ANIMATION_TIME_PER_STAGE * f64::from(self.peak.stage_count()));
+    }
+
     fn swap_splitter(&mut self, i: usize, j: usize) {
         self.peak.splitters.swap(i, j);
         self.view_stage.stop_animating();
@@ -63,6 +68,7 @@ impl Protonolysis {
     fn push_splitter(&mut self, splitter: Splitter) {
         self.peak.splitters.push(splitter);
         self._update_view_stage_bounds();
+        self._update_animation_duration();
         self.view_stage.set_value_clamping(*self.view_stage + 1.);
     }
 
@@ -70,6 +76,7 @@ impl Protonolysis {
         self.peak.splitters.remove(i);
         self.view_stage.set_value_clamping(*self.view_stage - 1.);
         self._update_view_stage_bounds();
+        self._update_animation_duration();
         self.view_stage.stop_animating();
     }
 
@@ -90,7 +97,7 @@ impl Protonolysis {
 }
 
 impl Protonolysis {
-    const ANIMATION_TIME: f64 = 4.0;
+    const ANIMATION_TIME_PER_STAGE: f64 = 2.0;
     const DEFAULT_PATTERN: &str = "Et₂O (CH₂)";
     const DEFAULT_X: f64 = 0.15;
     const DEFAULT_Y: f64 = 300.;
@@ -142,7 +149,7 @@ impl Protonolysis {
             field_strength: 600.,
             selected_preset: Self::DEFAULT_PATTERN,
             peak,
-            view_stage: CyclicallyAnimatedF64::new(1., 0.0..=1.0, Self::ANIMATION_TIME),
+            view_stage: CyclicallyAnimatedF64::new(1., 0.0..=1.0, Self::ANIMATION_TIME_PER_STAGE),
             show_integral: true,
             show_splitting_diagram: true,
             show_peaklets: false,
@@ -520,7 +527,7 @@ impl Protonolysis {
             .auto_bounds_y()
             .height(
                 ui.available_height()
-                    .min(100. * (self.peak.splitters.len() + 1) as f32),
+                    .min(100. * self.peak.stage_count() as f32),
             )
             .data_aspect(15.);
 

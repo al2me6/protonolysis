@@ -259,6 +259,12 @@ impl Peak {
     }
 
     #[must_use]
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn stage_count(&self) -> u32 {
+        self.splitters.len() as u32 + 1
+    }
+
+    #[must_use]
     pub fn name(&self) -> Option<String> {
         let splitter_count = self.splitters.len();
         if splitter_count == 0 {
