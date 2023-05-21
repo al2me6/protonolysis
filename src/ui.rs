@@ -232,7 +232,7 @@ impl Protonolysis {
                     .on_hover_text("Sort by splitting constant in ascending order")
                     .clicked()
                 {
-                    self.peak.canonicalize();
+                    self.peak.sort_by_j();
                 }
             });
 

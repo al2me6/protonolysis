@@ -277,7 +277,7 @@ impl Peak {
             .collect()
     }
 
-    pub fn canonicalize(&mut self) {
+    pub fn sort_by_j(&mut self) {
         self.splitters.sort_by(|a, b| b.j.total_cmp(&a.j));
     }
 
