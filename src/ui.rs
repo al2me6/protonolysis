@@ -270,14 +270,21 @@ impl Protonolysis {
                         let splitter = &mut self.peak.splitters[i];
                         row.col(|ui| {
                             ui.style_mut().spacing.slider_width = 80.;
-                            ui.add(Slider::new(&mut splitter.n, 1..=Self::MAX_PROTON_COUNT));
+                            let resp =
+                                ui.add(Slider::new(&mut splitter.n, 1..=Self::MAX_PROTON_COUNT));
+                            if resp.changed() {
+                                self.view_stage.stop_animating();
+                            }
                         });
                         row.col(|ui| {
-                            ui.add(
-                                Slider::new(&mut splitter.j, 0.0..=20.0)
+                            let resp = ui.add(
+                                Slider::new(&mut splitter.j, 0.2..=20.0)
                                     .fixed_decimals(1)
                                     .smart_aim(false),
                             );
+                            if resp.changed() {
+                                self.view_stage.stop_animating();
+                            }
                         });
                         row.col(|ui| {
                             let label = ui.label(splitter.abbreviate_pattern());
