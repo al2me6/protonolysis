@@ -256,6 +256,7 @@ impl Protonolysis {
                         let splitter = &mut self.peak.splitters[i];
                         row.col(|ui| {
                             ui.style_mut().spacing.slider_width = 80.;
+                            ui.style_mut().spacing.interact_size.x = 25.;
                             ui.add_enabled(
                                 enabled,
                                 Slider::new(&mut splitter.n, 1..=Self::MAX_PROTON_COUNT),
@@ -270,10 +271,14 @@ impl Protonolysis {
                             );
                         });
                         row.col(|ui| {
-                            let label = ui.label(splitter.abbreviate_pattern());
-                            if let Some(name) = splitter.name_pattern() {
-                                label.on_hover_text(name);
-                            }
+                            // TODO: this has poor discoverability.
+                            let ratios = splitter.peak_ratios().join(":");
+                            let hover = if let Some(name) = splitter.name_pattern() {
+                                format!("{name}, {ratios}")
+                            } else {
+                                ratios
+                            };
+                            ui.label(splitter.abbreviate_pattern()).on_hover_text(hover);
                         });
                         row.col(|ui| {
                             let mut button = |enabled2, text, hover| {

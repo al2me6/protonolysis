@@ -85,6 +85,10 @@ impl Splitter {
     pub fn name_pattern(&self) -> Option<&'static str> {
         Self::PATTERN_NAMES.get(self.n as usize).copied()
     }
+
+    pub fn peak_ratios(&self) -> impl Iterator<Item = u32> {
+        numerics::pascals_triangle(self.n)
+    }
 }
 
 impl Peaklet {
