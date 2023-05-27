@@ -5,7 +5,7 @@ pub mod utils;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use eframe::egui::plot::{Line, PlotBounds, PlotPoints, PlotUi};
+use eframe::egui::plot::{Line, PlotPoints, PlotUi};
 use eframe::egui::{
     self, Align, Button, CentralPanel, ComboBox, Context, DragValue, FontData, FontDefinitions,
     FontTweak, Layout, RichText, ScrollArea, SidePanel, Slider, TextStyle, Ui,
@@ -44,7 +44,6 @@ pub struct Protonolysis {
     show_integral: bool,
     show_splitting_diagram: bool,
     show_peaklets: bool,
-    linked_x_axis: (f64, f64),
     side_panel_width: StoreOnNthCall<2, f32>,
     cached_partial_cascade: MultipletCascade,
 }
@@ -76,8 +75,8 @@ impl Protonolysis {
             "SourceCodePro".to_owned(),
             load_font!("SourceCodePro-Regular.ttf").tweak(FontTweak {
                 scale: 1.1,
-                y_offset_factor: -0.25,
-                y_offset: 0.,
+                y_offset_factor: 0.05,
+                ..Default::default()
             }),
         );
         fonts
@@ -106,7 +105,6 @@ impl Protonolysis {
             show_integral: true,
             show_splitting_diagram: true,
             show_peaklets: false,
-            linked_x_axis: (-Self::DEFAULT_X, Self::DEFAULT_X),
             side_panel_width: StoreOnNthCall::default(),
             cached_partial_cascade,
         }
@@ -402,6 +400,7 @@ impl Protonolysis {
         let waveform = self
             .cached_partial_cascade
             .final_waveform(self.field_strength);
+        let plot_link_id = ui.id().with("link");
 
         let peak_plot = utils::make_noninteractable_plot("peak_plot")
             .include_x(-Self::DEFAULT_X)
@@ -409,9 +408,10 @@ impl Protonolysis {
             .include_y(Self::DEFAULT_Y * -0.05)
             .include_y(Self::DEFAULT_Y * 1.1)
             .allow_double_click_reset(true)
+            .link_axis(plot_link_id, true, false)
             .height(plot_height);
         peak_plot.show(ui, |plot_ui| {
-            utils::peak_viewer_interactions(plot_ui, &mut self.linked_x_axis);
+            utils::peak_viewer_interactions(plot_ui, true);
 
             let waveform_clone = waveform.clone();
             plot_ui.line(
@@ -450,7 +450,8 @@ impl Protonolysis {
             .include_y(-0.05)
             .include_y(1.05)
             .show_axes([false; 2])
-            .show_background(false);
+            .show_background(false)
+            .link_axis(plot_link_id, true, false);
         let draw_integral_plot = |ui: &mut Ui| {
             integral_plot
                 .show(ui, |plot_ui: &mut PlotUi| {
@@ -464,11 +465,7 @@ impl Protonolysis {
                         .width(2.)
                         .color(Color32::LIGHT_GREEN),
                     );
-
-                    let bounds = plot_ui.plot_bounds();
-                    let (mut bounds_min, mut bounds_max) = (bounds.min(), bounds.max());
-                    (bounds_min[0], bounds_max[0]) = self.linked_x_axis;
-                    plot_ui.set_plot_bounds(PlotBounds::from_min_max(bounds_min, bounds_max));
+                    utils::peak_viewer_interactions(plot_ui, false);
                 })
                 .response
         };

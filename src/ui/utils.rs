@@ -3,8 +3,8 @@ use eframe::egui::{self, CursorIcon, Grid, InputState, Margin, TopBottomPanel, U
 use eframe::epaint::Vec2;
 
 /// Apply custom zoom and pan interactions for peak plots.
-pub fn peak_viewer_interactions(plot_ui: &mut PlotUi, x_axis: &mut (f64, f64)) {
-    if !plot_ui.plot_hovered() {
+pub fn peak_viewer_interactions(plot_ui: &mut PlotUi, allow_vertical: bool) {
+    if !plot_ui.plot_hovered() && !plot_ui.plot_clicked() {
         return;
     }
 
@@ -15,7 +15,7 @@ pub fn peak_viewer_interactions(plot_ui: &mut PlotUi, x_axis: &mut (f64, f64)) {
     let (mut bounds_min, mut bounds_max) = (bounds.min(), bounds.max());
     // scroll wheel y zoom:
     let raw_scroll_y = plot_ui.ctx().input(|i| f64::from(i.scroll_delta.y));
-    if raw_scroll_y != 0. {
+    if allow_vertical && raw_scroll_y != 0. {
         let scroll_y = (raw_scroll_y / 200.).exp();
         bounds_min[1] /= scroll_y;
         bounds_max[1] /= scroll_y;
@@ -26,13 +26,15 @@ pub fn peak_viewer_interactions(plot_ui: &mut PlotUi, x_axis: &mut (f64, f64)) {
     let zoom_x = f64::from(zoom_delta.x);
     bounds_min[0] /= zoom_x;
     bounds_max[0] /= zoom_x;
-    if multitouch.is_some() {
+    if allow_vertical && multitouch.is_some() {
         let pinch_y = f64::from(zoom_delta.y);
         bounds_min[1] /= pinch_y;
         bounds_max[1] /= pinch_y;
     }
-    *x_axis = (bounds_min[0], bounds_max[0]);
-    plot_ui.set_plot_bounds(PlotBounds::from_min_max(bounds_min, bounds_max));
+    let new_bounds = PlotBounds::from_min_max(bounds_min, bounds_max);
+    if new_bounds != bounds {
+        plot_ui.set_plot_bounds(new_bounds);
+    }
 
     // Custom pan:
     let drag = plot_ui
@@ -42,7 +44,11 @@ pub fn peak_viewer_interactions(plot_ui: &mut PlotUi, x_axis: &mut (f64, f64)) {
         // Don't allow drag-to-pan while in pinch-to-zoom.
         if multitouch.is_none() {
             plot_ui.ctx().set_cursor_icon(CursorIcon::ResizeHorizontal);
-            plot_ui.translate_bounds(Vec2 { x: -drag.x, y: 0. });
+            #[allow(clippy::cast_possible_truncation)]
+            plot_ui.translate_bounds(Vec2 {
+                x: -drag.x * plot_ui.transform().dvalue_dpos()[0] as f32,
+                y: 0.,
+            });
         }
     }
 }

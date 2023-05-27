@@ -33,10 +33,9 @@ pub mod ui;
 pub mod utils;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub const ICON: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/logo32.png"));
-
-#[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
+    static ICON: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/logo32.png"));
+
     let icon = image::load_from_memory(ICON).unwrap().into_rgba8();
     let (icon_width, icon_height) = icon.dimensions();
     let native_options = eframe::NativeOptions {
@@ -46,9 +45,10 @@ fn main() -> eframe::Result<()> {
             width: icon_width,
             height: icon_height,
         }),
+        follow_system_theme: false,
         ..Default::default()
     };
-    tracing_subscriber::fmt::init();
+    env_logger::init();
     eframe::run_native(
         app_name!(),
         native_options,
@@ -59,16 +59,19 @@ fn main() -> eframe::Result<()> {
 
 #[cfg(target_arch = "wasm32")]
 fn main() {
-    console_error_panic_hook::set_once();
-    tracing_wasm::set_as_global_default();
-    let web_options = eframe::WebOptions::default();
+    eframe::web::WebLogger::init(log::LevelFilter::Debug).ok();
+    let web_options = eframe::WebOptions {
+        follow_system_theme: false,
+        ..Default::default()
+    };
     wasm_bindgen_futures::spawn_local(async {
-        eframe::start_web(
-            "canvas",
-            web_options,
-            Box::new(|cc| Box::new(ui::Protonolysis::new(cc))),
-        )
-        .await
-        .expect("failed to start eframe");
+        eframe::WebRunner::new()
+            .start(
+                "canvas",
+                web_options,
+                Box::new(|cc| Box::new(ui::Protonolysis::new(cc))),
+            )
+            .await
+            .expect("failed to start eframe");
     });
 }
