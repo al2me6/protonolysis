@@ -1,5 +1,6 @@
 pub mod distribution_sum;
 pub mod gaussian;
+pub mod lorentzian;
 
 use std::ops::RangeInclusive;
 
