@@ -17,6 +17,7 @@ use maplit::hashmap;
 
 use self::animation::CyclicallyAnimatedF64;
 use crate::numerics;
+use crate::numerics::distribution::gaussian::Gaussian;
 use crate::numerics::distribution::RenormalizedDistribution;
 use crate::peak::{self, FractionalStageIndex, MultipletCascade, Peak, Splitter};
 use crate::utils::StoreOnNthCall;
@@ -30,6 +31,8 @@ macro_rules! load_font {
         )))
     };
 }
+
+pub type PeakGeometry = Gaussian;
 
 pub static PEAK_PRESETS: LazyLock<HashMap<&str, Vec<Splitter>>> = LazyLock::new(|| {
     hashmap! {
@@ -47,7 +50,7 @@ pub struct Protonolysis {
     show_splitting_diagram: bool,
     show_peaklets: bool,
     side_panel_width: StoreOnNthCall<2, f32>,
-    cached_partial_cascade: MultipletCascade,
+    cached_partial_cascade: MultipletCascade<PeakGeometry>,
 }
 
 impl Protonolysis {
@@ -501,7 +504,7 @@ impl Protonolysis {
         plot.show(ui, |plot_ui| {
             splitting_diagram::draw_splitting_diagram(
                 plot_ui,
-                &self.peak.build_multiplet_cascade(),
+                &self.peak.build_multiplet_cascade::<PeakGeometry>(),
                 &self.cached_partial_cascade,
                 FractionalStageIndex::new(*self.view_stage),
             );

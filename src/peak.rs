@@ -2,9 +2,11 @@ mod multiplet_cascade;
 
 use std::borrow::Cow;
 use std::collections::VecDeque;
+use std::marker::PhantomData;
 
 pub use self::multiplet_cascade::{MultipletCascade, SplittingRelationship};
 use crate::numerics;
+use crate::numerics::distribution::RenormalizedDistribution;
 
 #[must_use]
 #[allow(clippy::doc_markdown)]
@@ -188,10 +190,11 @@ impl Peak {
     }
 
     #[must_use]
-    pub fn build_multiplet_cascade(&self) -> MultipletCascade {
+    pub fn build_multiplet_cascade<D: RenormalizedDistribution>(&self) -> MultipletCascade<D> {
         let mut cascade = MultipletCascade {
             stages: itertools::repeat_n(vec![], self.splitters.len() + 1).collect(),
             fwhm: self.fwhm,
+            _phantom: PhantomData,
         };
 
         let mut queue: VecDeque<(Peaklet, &[Splitter])> = VecDeque::new();
