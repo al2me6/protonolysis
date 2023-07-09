@@ -2,7 +2,6 @@ use std::f64::consts::PI;
 
 pub mod distribution;
 pub mod error_function;
-pub mod gaussian_sum;
 
 pub fn pascals_triangle(n: u32) -> impl Iterator<Item = u32> {
     let mut prev = 1;

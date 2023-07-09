@@ -1,7 +1,7 @@
 use super::Peaklet;
+use crate::numerics::distribution::distribution_sum::DistributionSum;
 use crate::numerics::distribution::gaussian::Gaussian;
 use crate::numerics::distribution::RenormalizedDistribution;
-use crate::numerics::gaussian_sum::GaussianSum;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct SplittingRelationship<'a> {
@@ -45,7 +45,7 @@ impl MultipletCascade {
     }
 
     #[must_use]
-    pub fn nth_waveform(&self, n: usize, field_strength: f64) -> GaussianSum {
+    pub fn nth_waveform(&self, n: usize, field_strength: f64) -> DistributionSum<Gaussian> {
         self.stages[n]
             .iter()
             .map(|peaklet| {
@@ -59,7 +59,7 @@ impl MultipletCascade {
     }
 
     #[must_use]
-    pub fn final_waveform(&self, field_strength: f64) -> GaussianSum {
+    pub fn final_waveform(&self, field_strength: f64) -> DistributionSum<Gaussian> {
         self.nth_waveform(self.stages.len() - 1, field_strength)
     }
 

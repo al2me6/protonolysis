@@ -2,23 +2,22 @@ use std::ops::RangeInclusive;
 
 use itertools::Itertools;
 
-use crate::numerics::distribution::gaussian::Gaussian;
 use crate::numerics::distribution::RenormalizedDistribution;
 
 #[derive(Clone, PartialEq, Debug)]
-pub struct GaussianSum(Vec<Gaussian>);
+pub struct DistributionSum<D>(Vec<D>);
 
-impl FromIterator<Gaussian> for GaussianSum {
-    fn from_iter<T: IntoIterator<Item = Gaussian>>(iter: T) -> Self {
-        let mut gaussians = iter.into_iter().collect_vec();
-        gaussians.sort_by(|a, b| a.μ.total_cmp(&b.μ));
-        Self(gaussians)
+impl<D: RenormalizedDistribution> FromIterator<D> for DistributionSum<D> {
+    fn from_iter<T: IntoIterator<Item = D>>(iter: T) -> Self {
+        let mut distributions = iter.into_iter().collect_vec();
+        distributions.sort_by(|a, b| a.μ().total_cmp(&b.μ()));
+        Self(distributions)
     }
 }
 
-impl GaussianSum {
+impl<D: RenormalizedDistribution> DistributionSum<D> {
     /// Iterate over the individual Gaussians of the sum.
-    pub fn components(&self) -> impl Iterator<Item = &Gaussian> {
+    pub fn components(&self) -> impl Iterator<Item = &D> {
         self.0.iter()
     }
 
@@ -47,7 +46,7 @@ impl GaussianSum {
     /// (i.e., means) of the components.
     pub fn max(&self) -> f64 {
         self.components()
-            .map(|g| self.evaluate(g.μ))
+            .map(|g| self.evaluate(g.μ()))
             .reduce(f64::max)
             .unwrap_or(0.)
     }

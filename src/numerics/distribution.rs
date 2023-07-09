@@ -1,3 +1,4 @@
+pub mod distribution_sum;
 pub mod gaussian;
 
 use std::ops::RangeInclusive;
