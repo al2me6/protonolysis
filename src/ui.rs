@@ -17,6 +17,7 @@ use maplit::hashmap;
 
 use self::animation::CyclicallyAnimatedF64;
 use crate::numerics;
+use crate::numerics::distribution::RenormalizedDistribution;
 use crate::peak::{self, FractionalStageIndex, MultipletCascade, Peak, Splitter};
 use crate::utils::StoreOnNthCall;
 
@@ -436,7 +437,7 @@ impl Protonolysis {
                 plot_ui.line(
                     Line::new(PlotPoints::from_explicit_callback(
                         move |x| peaklet.evaluate(x),
-                        peaklet.extent(4.),
+                        peaklet.extent_by_fwhm(4.),
                         Self::SAMPLES / 10,
                     ))
                     .color(Color32::LIGHT_BLUE),

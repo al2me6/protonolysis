@@ -1,5 +1,6 @@
 use super::Peaklet;
-use crate::numerics::gaussian::Gaussian;
+use crate::numerics::distribution::gaussian::Gaussian;
+use crate::numerics::distribution::RenormalizedDistribution;
 use crate::numerics::gaussian_sum::GaussianSum;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -48,9 +49,9 @@ impl MultipletCascade {
         self.stages[n]
             .iter()
             .map(|peaklet| {
-                Gaussian::with_fwhm(
-                    super::j_to_ppm(self.fwhm, field_strength),
+                Gaussian::with_fwhm_normalized(
                     super::j_to_ppm(peaklet.δ, field_strength),
+                    super::j_to_ppm(self.fwhm, field_strength),
                     peaklet.integration,
                 )
             })
