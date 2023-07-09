@@ -16,6 +16,7 @@ use itertools::Itertools;
 use maplit::hashmap;
 
 use self::animation::CyclicallyAnimatedF64;
+use crate::numerics;
 use crate::peak::{self, FractionalStageIndex, MultipletCascade, Peak, Splitter};
 use crate::utils::StoreOnNthCall;
 
@@ -408,6 +409,10 @@ impl Protonolysis {
             .include_y(Self::DEFAULT_Y * -0.05)
             .include_y(Self::DEFAULT_Y * 1.1)
             .allow_double_click_reset(true)
+            .x_axis_formatter(|x, _| {
+                // Note that this is visual only!
+                eframe::emath::round_to_decimals(numerics::negate_nonzero(x), 4).to_string()
+            })
             .link_axis(plot_link_id, true, false)
             .height(plot_height);
         peak_plot.show(ui, |plot_ui| {

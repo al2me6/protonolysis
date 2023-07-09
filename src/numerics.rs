@@ -31,6 +31,16 @@ pub fn ease_transition_inverse(value: f64) -> f64 {
     (1.0 - 2.0 * value).acos() / PI
 }
 
+#[must_use]
+/// All hail negative zero.
+pub fn negate_nonzero(x: f64) -> f64 {
+    if x.abs() == 0.0 {
+        0.0
+    } else {
+        -x
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use itertools::Itertools;
