@@ -57,9 +57,11 @@ impl Protonolysis {
     const ANIMATION_TIME_PER_STAGE: f64 = 2.0;
     const DEFAULT_PATTERN: &str = "Et₂O (CH₂)";
     const DEFAULT_X: f64 = 0.15;
-    const DEFAULT_Y: f64 = 300.;
+    const DEFAULT_Y: f64 = 400.;
+    const INTEGRAL_WIDTH: f64 = 15.;
     const MAX_PROTON_COUNT: u32 = 9;
     const MAX_SPLITTERS: usize = 4;
+    const PEAKLET_WIDTH: f64 = 6.;
     const SAMPLES: usize = 5000;
     const TOO_COMPLEX_THRESHOLD: u32 = 100;
 
@@ -99,7 +101,7 @@ impl Protonolysis {
 
         let peak = Peak {
             splitters: PEAK_PRESETS[Self::DEFAULT_PATTERN].clone(),
-            fwhm: 1.0,
+            ..Default::default()
         };
         let cached_partial_cascade = peak.build_multiplet_cascade();
         Self {
@@ -176,7 +178,8 @@ impl Protonolysis {
                 .on_hover_text("Full width at half maximum (i.e., broadness) of peaks");
             ui.add_enabled(
                 enabled,
-                Slider::new(&mut self.peak.fwhm, 0.5..=4.0)
+                Slider::new(&mut self.peak.fwhm, 0.1..=5.0)
+                    .logarithmic(true)
                     .fixed_decimals(1)
                     .smart_aim(false)
                     .suffix(" Hz"),
@@ -440,7 +443,7 @@ impl Protonolysis {
                 plot_ui.line(
                     Line::new(PlotPoints::from_explicit_callback(
                         move |x| peaklet.evaluate(x),
-                        peaklet.extent_by_fwhm(4.),
+                        peaklet.extent_by_fwhm(Self::PEAKLET_WIDTH),
                         Self::SAMPLES / 10,
                     ))
                     .color(Color32::LIGHT_BLUE),
@@ -464,7 +467,7 @@ impl Protonolysis {
         let draw_integral_plot = |ui: &mut Ui| {
             integral_plot
                 .show(ui, |plot_ui: &mut PlotUi| {
-                    let extent = waveform.extent(10.);
+                    let extent = waveform.extent(Self::INTEGRAL_WIDTH);
                     plot_ui.line(
                         Line::new(PlotPoints::from_explicit_callback(
                             move |x| waveform.evaluate_integral(x),

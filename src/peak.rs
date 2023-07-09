@@ -142,7 +142,7 @@ impl Default for Peak {
     fn default() -> Self {
         Self {
             splitters: vec![],
-            fwhm: 1.,
+            fwhm: 0.5,
         }
     }
 }

@@ -14,7 +14,7 @@ impl RenormalizedDistribution for Lorentzian {
         Self {
             x0: μ,
             γ: fwhm / 2.,
-            normalize
+            normalize,
         }
     }
 
