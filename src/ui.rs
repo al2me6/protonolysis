@@ -17,7 +17,7 @@ use maplit::hashmap;
 
 use self::animation::CyclicallyAnimatedF64;
 use crate::numerics;
-use crate::numerics::distribution::gaussian::Gaussian;
+use crate::numerics::distribution::lorentzian::Lorentzian;
 use crate::numerics::distribution::RenormalizedDistribution;
 use crate::peak::{self, FractionalStageIndex, MultipletCascade, Peak, Splitter};
 use crate::utils::StoreOnNthCall;
@@ -32,7 +32,7 @@ macro_rules! load_font {
     };
 }
 
-pub type PeakGeometry = Gaussian;
+pub type PeakGeometry = Lorentzian;
 
 pub static PEAK_PRESETS: LazyLock<HashMap<&str, Vec<Splitter>>> = LazyLock::new(|| {
     hashmap! {
