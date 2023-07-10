@@ -9,7 +9,7 @@ pub const FRAC_1_SQRT_2PI: f64 = 0.398_942_280_4;
 pub struct Gaussian {
     pub μ: f64,
     pub σ: f64,
-    pub normalize: f64,
+    pub normalization: f64,
 }
 
 impl Gaussian {
@@ -19,11 +19,11 @@ impl Gaussian {
 }
 
 impl RenormalizedDistribution for Gaussian {
-    fn with_fwhm_normalized(μ: f64, fwhm: f64, normalize: f64) -> Self {
+    fn with_fwhm_normalized(μ: f64, fwhm: f64, normalization: f64) -> Self {
         Self {
             μ,
             σ: fwhm / Self::FWHM_FOR_σ,
-            normalize,
+            normalization,
         }
     }
 
@@ -35,10 +35,14 @@ impl RenormalizedDistribution for Gaussian {
         self.σ * Self::FWHM_FOR_σ
     }
 
+    fn normalization(&self) -> f64 {
+        self.normalization
+    }
+
     #[inline]
     fn evaluate(&self, x: f64) -> f64 {
         let σ_inv = self.σ.recip();
-        self.normalize
+        self.normalization
             * FRAC_1_SQRT_2PI
             * σ_inv
             * (-0.5 * σ_inv * σ_inv * (x - self.μ) * (x - self.μ)).exp()
@@ -46,6 +50,6 @@ impl RenormalizedDistribution for Gaussian {
 
     #[inline]
     fn evaluate_cdf(&self, x: f64) -> f64 {
-        0.5 * erfc(-(x - self.μ) / self.σ * FRAC_1_SQRT_2) * self.normalize
+        0.5 * erfc(-(x - self.μ) / self.σ * FRAC_1_SQRT_2) * self.normalization
     }
 }

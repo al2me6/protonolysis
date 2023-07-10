@@ -4,17 +4,17 @@ use super::RenormalizedDistribution;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Lorentzian {
-    x0: f64,
-    γ: f64,
-    normalize: f64,
+    pub x0: f64,
+    pub γ: f64,
+    pub normalization: f64,
 }
 
 impl RenormalizedDistribution for Lorentzian {
-    fn with_fwhm_normalized(μ: f64, fwhm: f64, normalize: f64) -> Self {
+    fn with_fwhm_normalized(μ: f64, fwhm: f64, normalization: f64) -> Self {
         Self {
             x0: μ,
             γ: fwhm / 2.,
-            normalize,
+            normalization,
         }
     }
 
@@ -26,11 +26,15 @@ impl RenormalizedDistribution for Lorentzian {
         self.γ * 2.
     }
 
+    fn normalization(&self) -> f64 {
+        self.normalization
+    }
+
     fn evaluate(&self, x: f64) -> f64 {
-        FRAC_1_PI * self.γ / ((x - self.x0) * (x - self.x0) + self.γ * self.γ) * self.normalize
+        FRAC_1_PI * self.γ / ((x - self.x0) * (x - self.x0) + self.γ * self.γ) * self.normalization
     }
 
     fn evaluate_cdf(&self, x: f64) -> f64 {
-        (FRAC_1_PI * ((x - self.x0) / self.γ).atan() + 0.5) * self.normalize
+        (FRAC_1_PI * ((x - self.x0) / self.γ).atan() + 0.5) * self.normalization
     }
 }

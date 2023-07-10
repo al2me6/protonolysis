@@ -1,7 +1,6 @@
 use eframe::egui::plot::{Line, LineStyle, PlotUi};
 use eframe::epaint::Color32;
 
-use crate::numerics::distribution::RenormalizedDistribution;
 use crate::peak::{FractionalStageIndex, MultipletCascade, Peaklet, SplittingRelationship};
 
 const STAGE_ORIGIN: f64 = 0.;
@@ -63,10 +62,10 @@ fn draw_group_children_and_connectors(
     }
 }
 
-pub(super) fn draw_splitting_diagram<D: RenormalizedDistribution>(
+pub(super) fn draw_splitting_diagram(
     plot_ui: &mut PlotUi,
-    full_cascade: &MultipletCascade<D>,
-    partial_cascade: &MultipletCascade<D>,
+    full_cascade: &MultipletCascade,
+    partial_cascade: &MultipletCascade,
     view_stage: FractionalStageIndex,
 ) {
     draw_peaklet_marker(plot_ui, &full_cascade.base_peaklet(), 0, 1., true);

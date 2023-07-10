@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use super::Peaklet;
 use crate::numerics::distribution::distribution_sum::DistributionSum;
 use crate::numerics::distribution::RenormalizedDistribution;
@@ -15,7 +13,7 @@ pub struct SplittingRelationship<'a> {
 /// starting from the parent singlet.
 ///
 /// _E.g._, s -> q -> qd -> qdd.
-pub struct MultipletCascade<D> {
+pub struct MultipletCascade {
     /// Splitting patterns resulting from contributions of the first n splitters only.
     /// Note that the ordering of peaklets within each stage is meaningful: children of the
     /// same peaklet appear consecutively, and these groups are in the same order as the parent
@@ -23,7 +21,6 @@ pub struct MultipletCascade<D> {
     pub(super) stages: Vec<Vec<Peaklet>>,
     /// Full width at half maximum of a single peaklet, in Hz.
     pub(super) fwhm: f64,
-    pub(super) _phantom: PhantomData<D>,
 }
 
 impl<'a> SplittingRelationship<'a> {
@@ -33,7 +30,7 @@ impl<'a> SplittingRelationship<'a> {
     }
 }
 
-impl<D: RenormalizedDistribution> MultipletCascade<D> {
+impl MultipletCascade {
     #[must_use]
     pub fn base_peaklet(&self) -> Peaklet {
         let base_stage = &self.stages[0];
@@ -47,7 +44,11 @@ impl<D: RenormalizedDistribution> MultipletCascade<D> {
     }
 
     #[must_use]
-    pub fn nth_waveform(&self, n: usize, field_strength: f64) -> DistributionSum<D> {
+    pub fn nth_waveform<D: RenormalizedDistribution>(
+        &self,
+        n: usize,
+        field_strength: f64,
+    ) -> DistributionSum<D> {
         self.stages[n]
             .iter()
             .map(|peaklet| {
@@ -61,7 +62,10 @@ impl<D: RenormalizedDistribution> MultipletCascade<D> {
     }
 
     #[must_use]
-    pub fn final_waveform(&self, field_strength: f64) -> DistributionSum<D> {
+    pub fn final_waveform<D: RenormalizedDistribution>(
+        &self,
+        field_strength: f64,
+    ) -> DistributionSum<D> {
         self.nth_waveform(self.stages.len() - 1, field_strength)
     }
 

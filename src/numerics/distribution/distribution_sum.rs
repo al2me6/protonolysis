@@ -5,6 +5,7 @@ use itertools::Itertools;
 use crate::numerics::distribution::RenormalizedDistribution;
 
 #[derive(Clone, PartialEq, Debug)]
+/// A linear combination of individual distributions.
 pub struct DistributionSum<D>(Vec<D>);
 
 impl<D: RenormalizedDistribution> FromIterator<D> for DistributionSum<D> {
@@ -16,7 +17,7 @@ impl<D: RenormalizedDistribution> FromIterator<D> for DistributionSum<D> {
 }
 
 impl<D: RenormalizedDistribution> DistributionSum<D> {
-    /// Iterate over the individual Gaussians of the sum.
+    /// Iterate over the individual distributions of the sum.
     pub fn components(&self) -> impl Iterator<Item = &D> {
         self.0.iter()
     }
@@ -27,14 +28,14 @@ impl<D: RenormalizedDistribution> DistributionSum<D> {
     }
 
     #[must_use]
-    pub fn evaluate_integral(&self, x: f64) -> f64 {
+    pub fn evaluate_cdf(&self, x: f64) -> f64 {
         self.components().map(|g| g.evaluate_cdf(x)).sum()
     }
 
     #[must_use]
     /// The overall extent of the sum, or the union of the extents of the individual components
     /// (where each extent comprises the interval `n` FWHMs out from the mean).
-    pub fn extent(&self, n: f64) -> RangeInclusive<f64> {
+    pub fn extent_by_fwhm(&self, n: f64) -> RangeInclusive<f64> {
         self.components()
             .map(|g| g.extent_by_fwhm(n).into_inner())
             .reduce(|(l1, r1), (l2, r2)| (l1.min(l2), r1.max(r2)))

@@ -50,7 +50,7 @@ pub struct Protonolysis {
     show_splitting_diagram: bool,
     show_peaklets: bool,
     side_panel_width: StoreOnNthCall<2, f32>,
-    cached_partial_cascade: MultipletCascade<PeakGeometry>,
+    cached_partial_cascade: MultipletCascade,
 }
 
 impl Protonolysis {
@@ -407,7 +407,7 @@ impl Protonolysis {
 
         let waveform = self
             .cached_partial_cascade
-            .final_waveform(self.field_strength);
+            .final_waveform::<PeakGeometry>(self.field_strength);
         let plot_link_id = ui.id().with("link");
 
         let peak_plot = utils::make_noninteractable_plot("peak_plot")
@@ -467,10 +467,10 @@ impl Protonolysis {
         let draw_integral_plot = |ui: &mut Ui| {
             integral_plot
                 .show(ui, |plot_ui: &mut PlotUi| {
-                    let extent = waveform.extent(Self::INTEGRAL_WIDTH);
+                    let extent = waveform.extent_by_fwhm(Self::INTEGRAL_WIDTH);
                     plot_ui.line(
                         Line::new(PlotPoints::from_explicit_callback(
-                            move |x| waveform.evaluate_integral(x),
+                            move |x| waveform.evaluate_cdf(x),
                             extent,
                             Self::SAMPLES / 2,
                         ))
@@ -507,7 +507,7 @@ impl Protonolysis {
         plot.show(ui, |plot_ui| {
             splitting_diagram::draw_splitting_diagram(
                 plot_ui,
-                &self.peak.build_multiplet_cascade::<PeakGeometry>(),
+                &self.peak.build_multiplet_cascade(),
                 &self.cached_partial_cascade,
                 FractionalStageIndex::new(*self.view_stage),
             );
